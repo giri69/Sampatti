@@ -1,2 +1,4 @@
 Backend/user-management-service/node_modules
 node_modules
+.env
+*.zip

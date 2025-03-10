@@ -1,12 +1,12 @@
-# Sampatii
+# Sampatti
 
 <p align="center">
-  <img src="https://notioly.com/wp-content/uploads/2025/01/489.Planting.png" alt="Sampatii Logo" width="200"/>
+  <img src="https://notioly.com/wp-content/uploads/2025/01/489.Planting.png" alt="Sampatti Logo" width="200"/>
 </p>
 
 ## Introduction
 
-Sampatii is a comprehensive financial technology platform designed to transform how people interact with money. We're building a bridge between traditional financial systems and the digital economy, creating accessible, secure, and efficient financial tools for everyone.
+Sampatti is a comprehensive financial technology platform designed to transform how people interact with money. We're building a bridge between traditional financial systems and the digital economy, creating accessible, secure, and efficient financial tools for everyone.
 
 ## Our Vision
 
@@ -14,7 +14,7 @@ Sampatii is a comprehensive financial technology platform designed to transform 
   <img src="https://notioly.com/wp-content/uploads/2025/02/502.Gardening.png" alt="Growth Vision" width="300"/>
 </p>
 
-At Sampatii, we believe in empowering individuals and businesses with technology that simplifies complex financial processes while maintaining the highest standards of security and compliance. Our goal is to nurture financial inclusion and help our users grow their potential through innovative financial solutions.
+At Sampatti, we believe in empowering individuals and businesses with technology that simplifies complex financial processes while maintaining the highest standards of security and compliance. Our goal is to nurture financial inclusion and help our users grow their potential through innovative financial solutions.
 
 ## Core Features
 
@@ -30,11 +30,11 @@ At Sampatii, we believe in empowering individuals and businesses with technology
   <img src="https://notioly.com/wp-content/uploads/2024/04/385.Tasks_.png" alt="Work in Progress" width="300"/>
 </p>
 
-We're constantly evolving and improving Sampatii through ongoing development efforts. Our current focus areas include core infrastructure, payment processing systems, mobile applications, cross-border capabilities, and expanding our financial service offerings.
+We're constantly evolving and improving Sampatti through ongoing development efforts. Our current focus areas include core infrastructure, payment processing systems, mobile applications, cross-border capabilities, and expanding our financial service offerings.
 
 ## How to Contribute
 
-We welcome contributions from the community! Whether you're a developer, designer, or financial expert, there are many ways to help Sampatii grow:
+We welcome contributions from the community! Whether you're a developer, designer, or financial expert, there are many ways to help Sampatti grow:
 
 1. **Code Contributions**: Submit pull requests to improve our platform
 2. **Documentation**: Help us make our guides and resources more comprehensive
