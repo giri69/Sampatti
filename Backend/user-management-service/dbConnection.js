@@ -1,16 +1,12 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-dotenv.config();
 
 let cachedDb = null;
 
 const connectDb = async () => {
   if (cachedDb) {
-    console.log('Using cached database connection');
     return cachedDb;
   }
-
-  console.log('Creating new database connection');
   
   const MONGODB_URI = process.env.MONGODB_URI;
   
