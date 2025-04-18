@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/sampatti/internal/types"
 	"github.com/sampatti/internal/util"
 )
@@ -50,7 +49,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 // RequireUserAccess ensures only regular users (not nominees) can access a route
 func (m *AuthMiddleware) RequireUserAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		isNominee, exists := c.Get("isNominee")
+		isNominee, exists := c.Get(string(types.IsNomineeKey))
 		if !exists || isNominee.(bool) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "requires user access"})
 			c.Abort()
@@ -64,7 +63,7 @@ func (m *AuthMiddleware) RequireUserAccess() gin.HandlerFunc {
 // RequireFullAccess ensures only users with full access (not limited nominees) can access a route
 func (m *AuthMiddleware) RequireFullAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		isNominee, exists := c.Get("isNominee")
+		isNominee, exists := c.Get(string(types.IsNomineeKey))
 		if !exists {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "access information missing"})
 			c.Abort()
@@ -72,7 +71,7 @@ func (m *AuthMiddleware) RequireFullAccess() gin.HandlerFunc {
 		}
 
 		if isNominee.(bool) {
-			accessLevel, _ := c.Get("accessLevel")
+			accessLevel, _ := c.Get(string(types.AccessLevelKey))
 			if accessLevel.(string) != "Full" {
 				c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "requires full access"})
 				c.Abort()
@@ -82,14 +81,4 @@ func (m *AuthMiddleware) RequireFullAccess() gin.HandlerFunc {
 
 		c.Next()
 	}
-}
-
-// ExtractUserID gets the user ID from context and validates it
-func ExtractUserID(c *gin.Context) (uuid.UUID, bool) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		return uuid.UUID{}, false
-	}
-
-	return userID.(uuid.UUID), true
 }

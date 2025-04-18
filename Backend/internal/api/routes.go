@@ -5,11 +5,23 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/sampatti/internal/config"
 	"github.com/sampatti/internal/handler"
 	"github.com/sampatti/internal/repository/postgres"
 	"github.com/sampatti/internal/service"
 	"github.com/sampatti/internal/util"
 )
+
+// Convert from config.R2Config to service.R2Config
+func convertR2Config(cfg *config.R2Config) *service.R2Config {
+	return &service.R2Config{
+		AccountID:       cfg.AccountID,
+		AccessKeyID:     cfg.AccessKeyID,
+		AccessKeySecret: cfg.AccessKeySecret,
+		BucketName:      cfg.BucketName,
+		// Endpoint field is not included as it doesn't exist in service.R2Config
+	}
+}
 
 // SetupRoutes configures all API routes and handlers
 func (s *Server) setupRoutes() {
@@ -25,7 +37,7 @@ func (s *Server) setupRoutes() {
 	jwtUtil := util.NewJWTUtil(s.cfg.JWT.Secret)
 
 	// Initialize services
-	storageService, err := service.NewStorageService(&s.cfg.R2)
+	storageService, err := service.NewStorageService(convertR2Config(&s.cfg.R2))
 	if err != nil {
 		panic(err)
 	}

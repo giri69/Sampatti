@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sampatti/internal/api"
 	"github.com/sampatti/internal/model"
 	"github.com/sampatti/internal/service"
+	"github.com/sampatti/internal/types" // Changed from api to types
 )
 
 type AuthHandler struct {
@@ -116,7 +116,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 // ChangePassword handles password changes
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -157,8 +157,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	// In a real implementation, this would generate a token and send an email
-	// For now, we'll just return a success message regardless of whether the email exists
+	// In a real implementation, this would send an email to the nominee
 	c.JSON(http.StatusOK, gin.H{"message": "if your email exists in our system, you will receive password reset instructions"})
 }
 

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sampatti/internal/api"
 	"github.com/sampatti/internal/model"
 	"github.com/sampatti/internal/service"
+	"github.com/sampatti/internal/types" // Changed from api to types
 )
 
 type UserHandler struct {
@@ -21,7 +21,7 @@ func NewUserHandler(userService *service.UserService) *UserHandler {
 
 // GetProfile returns the authenticated user's profile
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -45,7 +45,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 // UpdateProfile updates the authenticated user's profile
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -85,7 +85,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 // UpdateSettings updates the authenticated user's settings
 func (h *UserHandler) UpdateSettings(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return

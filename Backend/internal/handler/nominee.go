@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sampatti/internal/api"
 	"github.com/sampatti/internal/model"
 	"github.com/sampatti/internal/service"
+	"github.com/sampatti/internal/types" // Changed from api to types
 )
 
 type NomineeHandler struct {
@@ -21,7 +21,7 @@ func NewNomineeHandler(nomineeService *service.NomineeService) *NomineeHandler {
 
 // Create handles adding a new nominee
 func (h *NomineeHandler) Create(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -70,7 +70,7 @@ func (h *NomineeHandler) Create(c *gin.Context) {
 
 // GetByID returns a specific nominee by ID
 func (h *NomineeHandler) GetByID(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -100,7 +100,7 @@ func (h *NomineeHandler) GetByID(c *gin.Context) {
 
 // GetAll returns all nominees for the authenticated user
 func (h *NomineeHandler) GetAll(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -117,7 +117,7 @@ func (h *NomineeHandler) GetAll(c *gin.Context) {
 
 // Update handles updating a nominee's information
 func (h *NomineeHandler) Update(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -187,7 +187,7 @@ func (h *NomineeHandler) Update(c *gin.Context) {
 
 // Delete handles removing a nominee
 func (h *NomineeHandler) Delete(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -216,7 +216,7 @@ func (h *NomineeHandler) Delete(c *gin.Context) {
 
 // SendInvitation handles generating and sending an invitation to a nominee
 func (h *NomineeHandler) SendInvitation(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -249,7 +249,7 @@ func (h *NomineeHandler) SendInvitation(c *gin.Context) {
 
 // GetAccessLogs returns access logs for all nominees
 func (h *NomineeHandler) GetAccessLogs(c *gin.Context) {
-	userID, ok := api.ExtractUserID(c)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return

@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sampatti/internal/model"
 	"github.com/sampatti/internal/service"
-	"github.com/sampatti/internal/types"
+	"github.com/sampatti/internal/types" // Changed from api to types
 )
 
 type AssetHandler struct {
@@ -21,7 +21,7 @@ func NewAssetHandler(assetService *service.AssetService) *AssetHandler {
 
 // Create handles the creation of a new asset
 func (h *AssetHandler) Create(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -46,7 +46,7 @@ func (h *AssetHandler) Create(c *gin.Context) {
 
 // GetByID returns a specific asset by ID
 func (h *AssetHandler) GetByID(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -76,7 +76,7 @@ func (h *AssetHandler) GetByID(c *gin.Context) {
 
 // GetAll returns all assets for the authenticated user
 func (h *AssetHandler) GetAll(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -93,7 +93,7 @@ func (h *AssetHandler) GetAll(c *gin.Context) {
 
 // GetByType returns assets of a specific type for the authenticated user
 func (h *AssetHandler) GetByType(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -116,7 +116,7 @@ func (h *AssetHandler) GetByType(c *gin.Context) {
 
 // Update handles updating an existing asset
 func (h *AssetHandler) Update(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -154,7 +154,7 @@ func (h *AssetHandler) Update(c *gin.Context) {
 
 // Delete handles deleting an asset
 func (h *AssetHandler) Delete(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -183,7 +183,7 @@ func (h *AssetHandler) Delete(c *gin.Context) {
 
 // UpdateValue handles updating just the current value of an asset
 func (h *AssetHandler) UpdateValue(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -222,7 +222,7 @@ func (h *AssetHandler) UpdateValue(c *gin.Context) {
 
 // GetSummary returns a summary of all assets for the authenticated user
 func (h *AssetHandler) GetSummary(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -239,7 +239,7 @@ func (h *AssetHandler) GetSummary(c *gin.Context) {
 
 // GetHistory returns the value history for a specific asset
 func (h *AssetHandler) GetHistory(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return

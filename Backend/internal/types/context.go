@@ -2,6 +2,7 @@
 package types
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -19,9 +20,20 @@ const (
 	AccessLevelKey ContextKey = "accessLevel"
 )
 
-// Extract user ID from context values map
+// ExtractUserID extracts user ID from context values map
 func ExtractUserID(values map[string]interface{}) (uuid.UUID, bool) {
 	userID, exists := values[string(UserIDKey)]
+	if !exists {
+		return uuid.UUID{}, false
+	}
+
+	id, ok := userID.(uuid.UUID)
+	return id, ok
+}
+
+// ExtractUserIDFromGin extracts user ID from gin context
+func ExtractUserIDFromGin(c *gin.Context) (uuid.UUID, bool) {
+	userID, exists := c.Get(string(UserIDKey))
 	if !exists {
 		return uuid.UUID{}, false
 	}

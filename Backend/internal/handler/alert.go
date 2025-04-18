@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sampatti/internal/service"
-	"github.com/sampatti/internal/types"
+	"github.com/sampatti/internal/types" // Changed from api to types
 )
 
 type AlertHandler struct {
@@ -21,7 +21,7 @@ func NewAlertHandler(alertService *service.AlertService) *AlertHandler {
 
 // GetAll returns all alerts for the authenticated user
 func (h *AlertHandler) GetAll(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -42,7 +42,7 @@ func (h *AlertHandler) GetAll(c *gin.Context) {
 
 // MarkAsRead marks an alert as read
 func (h *AlertHandler) MarkAsRead(c *gin.Context) {
-	userID, ok := types.ExtractUserID(c.Keys)
+	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
