@@ -1,8 +1,18 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import { getUserProfile } from '../utils/api';
 
-// Create the auth context
-const AuthContext = createContext(null);
+// Create the auth context with default values
+const AuthContext = createContext({
+  currentUser: null,
+  isAuthenticated: false,
+  loading: true,
+  error: null,
+  login: () => {},
+  logout: () => {},
+  updateUser: () => {},
+  refreshAuthToken: () => Promise.resolve(false),
+  clearError: () => {}
+});
 
 // Custom hook to use the auth context
 export const useAuth = () => useContext(AuthContext);

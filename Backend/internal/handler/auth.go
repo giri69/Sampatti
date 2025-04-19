@@ -30,7 +30,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		detailedError := err.Error()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": detailedError})
 		return
 	}
 

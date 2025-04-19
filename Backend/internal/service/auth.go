@@ -42,13 +42,16 @@ func NewAuthService(
 	}
 }
 
-// RegisterUser creates a new user account
 func (s *AuthService) RegisterUser(ctx context.Context, user *model.User, password string) error {
 	// Check if user already exists
-	fmt.Print(user)
 	existingUser, err := s.userRepo.GetByEmail(ctx, user.Email)
 	if err == nil && existingUser != nil {
 		return ErrUserAlreadyExists
+	}
+
+	// Validate password length
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
 	}
 
 	// Hash the password

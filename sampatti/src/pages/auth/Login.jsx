@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
-import { loginUser, getUserProfile } from '../../utils/api';
+import { loginUser } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -16,11 +16,9 @@ const Login = () => {
   const location = useLocation();
   const { login } = useAuth();
 
-  // Check for success message passed from registration
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
-      // Clean up the location state
       window.history.replaceState({}, document.title);
     }
   }, [location]);
@@ -32,16 +30,10 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Call the backend API
       const response = await loginUser(email, password);
       
-      // Get user data
-      const userData = await getUserProfile();
+      login(response.access_token, response.refresh_token, response.user);
       
-      // Use the login function from AuthContext
-      login(response.access_token, response.refresh_token, userData);
-      
-      // Redirect to dashboard or previous attempted location
       const redirectTo = location.state?.from?.pathname || '/dashboard';
       navigate(redirectTo);
     } catch (err) {
@@ -54,7 +46,6 @@ const Login = () => {
 
   return (
     <div className="w-full">
-      {/* Logo for mobile view */}
       <div className="mb-8 flex items-center md:hidden">
         <Lock className="text-white mr-2" size={24} />
         <span className="font-bold text-2xl tracking-tight text-white">Sampatti</span>
