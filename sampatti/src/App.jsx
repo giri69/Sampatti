@@ -5,6 +5,9 @@ import { Suspense, lazy } from 'react';
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import HomePage from './pages/HomePage';
+import Register from './pages/auth/Register';
+import Login from './pages/auth/Login';
+import ForgotPassword from './pages/auth/ForgotPassword';
 
 // Pages
 //const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -13,8 +16,6 @@ import HomePage from './pages/HomePage';
 //const Nominees = lazy(() => import('./pages/Nominees'));
 //const Alerts = lazy(() => import('./pages/Alerts'));
 //const Settings = lazy(() => import('./pages/Settings'));
-const Login = lazy(() => import('./pages/auth/Login'));
-//const Register = lazy(() => import('./pages/auth/Register'));
 //const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
 //const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -35,7 +36,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<HomePage />} />
         
-        {/* Auth Routes 
+       
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
