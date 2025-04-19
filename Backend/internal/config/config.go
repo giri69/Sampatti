@@ -61,7 +61,7 @@ func Load() (*Config, error) {
 			User:     getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", "postgres"),
 			Name:     getEnv("DB_NAME", "sampatti"),
-			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			SSLMode:  getEnv("DB_SSLMODE", "require"), // Changed from "disable" to "require"
 		},
 		JWT: JWTConfig{
 			Secret:        getEnv("JWT_SECRET", "your-secret-key"),
