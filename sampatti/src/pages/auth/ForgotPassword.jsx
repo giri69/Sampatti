@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft } from 'lucide-react';
+import { requestPasswordReset } from '../../utils/api';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -14,16 +15,14 @@ const ForgotPassword = () => {
     setIsLoading(true);
     
     try {
-      // In a real implementation, this would call your API
-      // const response = await requestPasswordReset(email);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call the password reset API
+      await requestPasswordReset(email);
       
       // Show success message
       setIsSubmitted(true);
     } catch (err) {
-      setError('Failed to send password reset email. Please try again.');
+      console.error('Password reset request error:', err);
+      setError(err.message || 'Failed to send password reset email. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -38,7 +37,7 @@ const ForgotPassword = () => {
 
       {isSubmitted ? (
         <div className="text-center">
-          <h2 className="text-3xl font-bold mb-4">Check your email</h2>
+          <h2 className="text-3xl font-bold mb-4 text-white">Check your email</h2>
           <p className="text-gray-400 mb-6">
             We've sent a password reset link to <span className="text-white">{email}</span>. 
             Please check your inbox and follow the instructions.
@@ -63,7 +62,7 @@ const ForgotPassword = () => {
         </div>
       ) : (
         <>
-          <h2 className="text-3xl font-bold text-white mb-2">Reset your password</h2>
+          <h2 className="text-3xl font-bold mb-2 text-white">Reset your password</h2>
           <p className="text-gray-400 mb-8">
             Enter your email address and we'll send you a link to reset your password.
           </p>
@@ -88,7 +87,7 @@ const ForgotPassword = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
+                  className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
                   placeholder="Enter your email"
                   required
                 />

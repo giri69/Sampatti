@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Mail, User, Eye, EyeOff, Phone } from 'lucide-react';
+import { registerUser } from '../../utils/api';
 
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
+    phone_number: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    date_of_birth: null
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,16 +39,26 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      // In a real implementation, this would call your API
-      // const response = await registerUser(formData);
+      // Prepare data for API - remove confirmPassword as it's not needed on backend
+      const { confirmPassword, ...apiData } = formData;
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Log the request data for debugging
+      console.log('Sending registration data:', apiData);
       
-      // For demo purposes, redirect to login
-      navigate('/login', { state: { message: 'Account created successfully! Please sign in.' } });
+      // Call the registration API
+      await registerUser(apiData);
+      
+      // Redirect to login with success message
+      navigate('/login', { 
+        state: { message: 'Account created successfully! Please sign in.' } 
+      });
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      if (err.message && err.message.includes('already exists')) {
+        setError('This email is already registered. Please use a different email or try logging in.');
+      } else {
+        setError(err.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +69,7 @@ const Register = () => {
       {/* Logo for mobile view */}
       <div className="mb-8 flex items-center md:hidden">
         <Lock className="text-white mr-2" size={24} />
-        <span className="font-bold text-2xl tracking-tight">Sampatti</span>
+        <span className="font-bold text-2xl tracking-tight text-white">Sampatti</span>
       </div>
 
       <h2 className="text-3xl font-bold mb-2 text-white">Create your account</h2>
@@ -84,7 +96,7 @@ const Register = () => {
               type="text"
               value={formData.name}
               onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
+              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Enter your full name"
               required
             />
@@ -105,7 +117,7 @@ const Register = () => {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Enter your email"
               required
             />
@@ -113,7 +125,7 @@ const Register = () => {
         </div>
         
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium mb-2 text-white">
+          <label htmlFor="phone_number" className="block text-sm font-medium mb-2 text-white">
             Phone Number (Optional)
           </label>
           <div className="relative">
@@ -121,12 +133,12 @@ const Register = () => {
               <Phone size={18} className="text-gray-500" />
             </div>
             <input
-              id="phone"
-              name="phone"
+              id="phone_number"
+              name="phone_number"
               type="tel"
-              value={formData.phone}
+              value={formData.phone_number}
               onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Enter your phone number"
             />
           </div>
@@ -146,7 +158,7 @@ const Register = () => {
               type={showPassword ? "text" : "password"}
               value={formData.password}
               onChange={handleChange}
-              className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
+              className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Create a strong password"
               required
               minLength="8"
@@ -182,7 +194,7 @@ const Register = () => {
               type={showPassword ? "text" : "password"}
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Confirm your password"
               required
             />
@@ -223,7 +235,7 @@ const Register = () => {
         </button>
       </form>
       
-      <p className="mt-8 text-center text-sm text-gray-400">
+      <p className="mt-8 text-center text-sm text-white">
         Already have an account?{' '}
         <Link to="/login" className="font-medium text-blue-400 hover:text-blue-300">
           Sign in instead

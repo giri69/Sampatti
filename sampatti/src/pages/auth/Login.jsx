@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { loginUser, getUserProfile } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -8,26 +10,43 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+
+  // Check for success message passed from registration
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clean up the location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setIsLoading(true);
     
     try {
-      // In a real implementation, this would call your API
-      // const response = await loginUser(email, password);
+      // Call the backend API
+      const response = await loginUser(email, password);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get user data
+      const userData = await getUserProfile();
       
-      // For demo purposes, hardcode a successful login
-      localStorage.setItem('isLoggedIn', 'true');
-      navigate('/dashboard');
+      // Use the login function from AuthContext
+      login(response.access_token, response.refresh_token, userData);
+      
+      // Redirect to dashboard or previous attempted location
+      const redirectTo = location.state?.from?.pathname || '/dashboard';
+      navigate(redirectTo);
     } catch (err) {
-      setError('Invalid email or password. Please try again.');
+      console.error('Login error:', err);
+      setError(err.message || 'Invalid email or password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -38,10 +57,10 @@ const Login = () => {
       {/* Logo for mobile view */}
       <div className="mb-8 flex items-center md:hidden">
         <Lock className="text-white mr-2" size={24} />
-        <span className="font-bold text-2xl tracking-tight">Sampatti</span>
+        <span className="font-bold text-2xl tracking-tight text-white">Sampatti</span>
       </div>
 
-      <h2 className="text-3xl text-white font-bold mb-2">Sign in to your account</h2>
+      <h2 className="text-3xl font-bold mb-2 text-white">Sign in to your account</h2>
       <p className="text-gray-400 mb-8">Welcome back! Please enter your details.</p>
       
       {error && (
@@ -50,9 +69,15 @@ const Login = () => {
         </div>
       )}
       
+      {successMessage && (
+        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-lg text-green-400">
+          {successMessage}
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="email" className="block text-sm text-white font-medium mb-2">
+          <label htmlFor="email" className="block text-sm font-medium mb-2 text-white">
             Email
           </label>
           <div className="relative">
@@ -64,7 +89,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
+              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Enter your email"
               required
             />
@@ -84,7 +109,7 @@ const Login = () => {
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
+              className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="••••••••"
               required
             />
