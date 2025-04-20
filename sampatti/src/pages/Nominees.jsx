@@ -521,7 +521,12 @@ const Nominees = () => {
       try {
         // Load nominees
         const nomineesData = await getNominees();
-        setNominees(nomineesData);
+        if(!nomineesData || nomineesData.length === 0) {
+        setNominees([]);
+        }
+        else{
+          setNominees(nomineesData);
+        }        
         
         // Load access logs
         try {

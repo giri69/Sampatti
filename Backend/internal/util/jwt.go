@@ -22,7 +22,7 @@ type JWTUtil struct {
 type TokenClaims struct {
 	UserID      uuid.UUID
 	IsNominee   bool
-	AccessType  string // "user" or "nominee"
+	AccessType  string
 	AccessLevel string // Used for nominees
 }
 

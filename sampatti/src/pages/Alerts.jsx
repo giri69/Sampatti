@@ -1,21 +1,18 @@
-// src/pages/Alerts.jsx
 import { useState, useEffect } from 'react';
 import { 
   Bell, AlertTriangle, Filter, Search, 
   CheckCircle, Clock, ArrowRight  
 } from 'lucide-react';
 import { getAlerts, markAlertAsRead } from '../utils/api';
-
-// Import common components
+ 
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import LoadingState from '../components/common/LoadingState';
 import ErrorState from '../components/common/ErrorState';
 import Input from '../components/common/Input';
-
-// Alert Item component
+ 
 const AlertItem = ({ alert, onClick, isSelected }) => {
-  // Get severity styles
+   
   const getSeverityStyles = (severity) => {
     switch (severity.toLowerCase()) {
       case 'high':
@@ -220,25 +217,33 @@ const Alerts = () => {
     status: 'all',
     severity: 'all'
   });
-  
-  // Load alerts on component mount
+   
   useEffect(() => {
     const loadAlerts = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        const data = await getAlerts(true); // Include read alerts
-        setAlerts(data);
-        setFilteredAlerts(data);
-        
-        // Select the first unread alert if available
+        const data = await getAlerts(true);  
+        if(!data || data.length === 0) {
+          console.log(data)
+         setAlerts([]); 
+         setFilteredAlerts([]);
+        }
+        else{
+          console.log(data)
+          setAlerts(data);
+          setFilteredAlerts(data);
+        }
+         
         const unreadAlert = data.find(alert => !alert.is_read);
+        if(!unreadAlert && data.length > 0) {
         if (unreadAlert) {
           setSelectedAlert(unreadAlert);
         } else if (data.length > 0) {
           setSelectedAlert(data[0]);
         }
+      }
       } catch (err) {
         console.error('Error loading alerts:', err);
         setError('Failed to load alerts. Please try again.');
@@ -251,8 +256,7 @@ const Alerts = () => {
     
     loadAlerts();
   }, []);
-  
-  // Apply filters when search term or filters change
+   
   useEffect(() => {
     let result = [...alerts];
     
