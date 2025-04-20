@@ -1,23 +1,25 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 
-// Layout
+// Layout and Protection
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Pages
 import HomePage from './pages/HomePage';
 import Register from './pages/auth/Register';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
 
-// Pages
-//const Dashboard = lazy(() => import('./pages/Dashboard'));
-//const Investments = lazy(() => import('./pages/Investments'));
-//const Documents = lazy(() => import('./pages/Documents'));
-//const Nominees = lazy(() => import('./pages/Nominees'));
-//const Alerts = lazy(() => import('./pages/Alerts'));
-//const Settings = lazy(() => import('./pages/Settings'));
-//const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
-//const NotFound = lazy(() => import('./pages/NotFound'));
+// Lazy-loaded pages
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Investments = lazy(() => import('./pages/Investments'));
+const Documents = lazy(() => import('./pages/Documents'));
+const Nominees = lazy(() => import('./pages/Nominees'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Settings = lazy(() => import('./pages/Settings'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -36,15 +38,19 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<HomePage />} />
         
-       
+        {/* Auth Routes */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
         
-        {/* Protected Routes 
-        <Route element={<MainLayout />}>
+        {/* Protected Routes */}
+        <Route element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/investments" element={<Investments />} />
           <Route path="/documents" element={<Documents />} />
@@ -53,10 +59,9 @@ function App() {
           <Route path="/settings" element={<Settings />} />
         </Route>
         
-        {/* Not Found Route 
+        {/* Not Found Route */}
         <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
-        */}
       </Routes>
     </Suspense>
   );

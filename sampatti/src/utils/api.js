@@ -51,6 +51,7 @@ const fetchApi = async (endpoint, options = {}) => {
   }
 };
 
+// Authentication functions
 export const loginUser = async (email, password) => {
   return fetchApi('/auth/login', {
     method: 'POST',
@@ -93,6 +94,7 @@ export const resetPassword = async (token, newPassword) => {
   });
 };
 
+// User profile functions
 export const getUserProfile = async () => {
   return fetchApi('/users/profile', {
     method: 'GET',
@@ -106,11 +108,244 @@ export const updateUserProfile = async (userData) => {
   });
 };
 
+export const updateUserSettings = async (settings) => {
+  return fetchApi('/users/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  });
+};
+
+export const changePassword = async (oldPassword, newPassword) => {
+  return fetchApi('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  });
+};
+
+// Dashboard and summary functions
+export const getDashboardSummary = async () => {
+  return fetchApi('/assets/summary', {
+    method: 'GET',
+  });
+};
+
+// Asset functions
+export const getAssets = async () => {
+  return fetchApi('/assets', {
+    method: 'GET',
+  });
+};
+
+export const getAssetById = async (assetId) => {
+  return fetchApi(`/assets/${assetId}`, {
+    method: 'GET',
+  });
+};
+
+export const getAssetHistory = async (assetId) => {
+  return fetchApi(`/assets/${assetId}/history`, {
+    method: 'GET',
+  });
+};
+
+export const getAssetsByType = async (assetType) => {
+  return fetchApi(`/assets/types/${assetType}`, {
+    method: 'GET',
+  });
+};
+
+export const createAsset = async (assetData) => {
+  return fetchApi('/assets', {
+    method: 'POST',
+    body: JSON.stringify(assetData),
+  });
+};
+
+export const updateAsset = async (assetId, assetData) => {
+  return fetchApi(`/assets/${assetId}`, {
+    method: 'PUT',
+    body: JSON.stringify(assetData),
+  });
+};
+
+export const updateAssetValue = async (assetId, value, notes) => {
+  return fetchApi(`/assets/${assetId}/value`, {
+    method: 'PATCH',
+    body: JSON.stringify({ value, notes }),
+  });
+};
+
+export const deleteAsset = async (assetId) => {
+  return fetchApi(`/assets/${assetId}`, {
+    method: 'DELETE',
+  });
+};
+
+// Document functions
+export const getDocuments = async () => {
+  return fetchApi('/documents', {
+    method: 'GET',
+  });
+};
+
+export const getDocumentById = async (documentId) => {
+  return fetchApi(`/documents/${documentId}`, {
+    method: 'GET',
+  });
+};
+
+export const uploadDocument = async (formData) => {
+  // Note: This function needs special handling for file uploads
+  const url = `${API_BASE_URL}/documents`;
+  
+  const headers = {};
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData, // FormData for file upload
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Document upload failed:', error);
+    throw error;
+  }
+};
+
+export const updateDocument = async (documentId, documentData) => {
+  return fetchApi(`/documents/${documentId}`, {
+    method: 'PUT',
+    body: JSON.stringify(documentData),
+  });
+};
+
+export const deleteDocument = async (documentId) => {
+  return fetchApi(`/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const updateDocumentNomineeAccess = async (documentId, nomineeIds) => {
+  return fetchApi(`/documents/${documentId}/nominee-access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ nominee_ids: nomineeIds }),
+  });
+};
+
+// Nominee functions
+export const getNominees = async () => {
+  return fetchApi('/nominees', {
+    method: 'GET',
+  });
+};
+
+export const getNomineeById = async (nomineeId) => {
+  return fetchApi(`/nominees/${nomineeId}`, {
+    method: 'GET',
+  });
+};
+
+export const createNominee = async (nomineeData) => {
+  return fetchApi('/nominees', {
+    method: 'POST',
+    body: JSON.stringify(nomineeData),
+  });
+};
+
+export const updateNominee = async (nomineeId, nomineeData) => {
+  return fetchApi(`/nominees/${nomineeId}`, {
+    method: 'PUT',
+    body: JSON.stringify(nomineeData),
+  });
+};
+
+export const deleteNominee = async (nomineeId) => {
+  return fetchApi(`/nominees/${nomineeId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const sendNomineeInvitation = async (nomineeId) => {
+  return fetchApi(`/nominees/${nomineeId}/send-invitation`, {
+    method: 'POST',
+  });
+};
+
+export const getNomineeAccessLogs = async () => {
+  return fetchApi('/nominees/access-log', {
+    method: 'GET',
+  });
+};
+
+// Alert functions
+export const getAlerts = async (includeRead = false) => {
+  return fetchApi(`/alerts?include_read=${includeRead}`, {
+    method: 'GET',
+  });
+};
+
+export const markAlertAsRead = async (alertId) => {
+  return fetchApi(`/alerts/${alertId}/read`, {
+    method: 'PATCH',
+  });
+};
+
+// Export all functions as a default object
 export default {
+  // Auth
   loginUser,
   registerUser,
   requestPasswordReset,
   resetPassword,
+  
+  // User
   getUserProfile,
   updateUserProfile,
+  updateUserSettings,
+  changePassword,
+  
+  // Dashboard
+  getDashboardSummary,
+  
+  // Assets
+  getAssets,
+  getAssetById,
+  getAssetHistory,
+  getAssetsByType,
+  createAsset,
+  updateAsset,
+  updateAssetValue,
+  deleteAsset,
+  
+  // Documents
+  getDocuments,
+  getDocumentById,
+  uploadDocument,
+  updateDocument,
+  deleteDocument,
+  updateDocumentNomineeAccess,
+  
+  // Nominees
+  getNominees,
+  getNomineeById,
+  createNominee,
+  updateNominee,
+  deleteNominee,
+  sendNomineeInvitation,
+  getNomineeAccessLogs,
+  
+  // Alerts
+  getAlerts,
+  markAlertAsRead
 };
