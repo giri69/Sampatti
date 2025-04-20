@@ -28,14 +28,14 @@ const fetchApi = async (endpoint, options = {}) => {
     if (!response.ok) {
       const contentType = response.headers.get('content-type');
       let errorMessage;
-      let errorDetails = {};
+      let errorDetails = { status: response.status };
       
       // Try to parse error as JSON if possible
       try {
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
-          errorMessage = errorData.error || `HTTP error ${response.status}`;
-          errorDetails = errorData;
+          errorMessage = errorData.error || errorData.message || `HTTP error ${response.status}`;
+          errorDetails = { ...errorDetails, ...errorData };
         } else {
           errorMessage = await response.text() || `HTTP error ${response.status}`;
         }
@@ -50,8 +50,13 @@ const fetchApi = async (endpoint, options = {}) => {
       throw error;
     }
     
-    // Parse response based on content type
+    // Check if response is empty
     const contentType = response.headers.get('content-type');
+    if (response.status === 204 || !contentType) {
+      return null;
+    }
+    
+    // Parse response based on content type
     if (contentType && contentType.includes('application/json')) {
       return await response.json();
     } else {
@@ -62,12 +67,6 @@ const fetchApi = async (endpoint, options = {}) => {
     if (!error.status) {
       error.status = 0;
       error.message = error.message || 'Network error. Please check your connection.';
-    }
-    
-    // Handle authentication errors - could trigger token refresh here
-    if (error.status === 401) {
-      console.warn('Authentication error - token may be invalid or expired');
-      // Could implement token refresh here
     }
     
     throw error;

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -21,14 +20,10 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 
-		// Debug logging - remove in production
-		fmt.Printf("Auth header: %s\n", authHeader)
-
 		// Extract token from header
 		tokenString, err := m.jwtUtil.ExtractTokenFromHeader(authHeader)
 		if err != nil {
-			fmt.Printf("Token extraction error: %v\n", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": err.Error()})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "authentication required"})
 			c.Abort()
 			return
 		}
@@ -36,7 +31,6 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		// Validate token
 		claims, err := m.jwtUtil.ValidateToken(tokenString)
 		if err != nil {
-			fmt.Printf("Token validation error: %v\n", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "invalid token"})
 			c.Abort()
 			return
@@ -48,7 +42,6 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		c.Set(string(types.AccessTypeKey), claims.AccessType)
 		c.Set(string(types.AccessLevelKey), claims.AccessLevel)
 
-		fmt.Printf("Authentication successful for user: %s\n", claims.UserID)
 		c.Next()
 	}
 }

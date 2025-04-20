@@ -65,7 +65,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
-// Login handles user authentication
 func (h *AuthHandler) Login(c *gin.Context) {
 	var request struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -119,7 +118,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
-// RefreshToken handles refreshing an access token
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var request struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`

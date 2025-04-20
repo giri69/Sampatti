@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }) => {
         const token = localStorage.getItem('authToken');
         
         if (!token) {
+          setIsAuthenticated(false);
           setLoading(false);
           return;
         }
@@ -73,26 +74,26 @@ export const AuthProvider = ({ children }) => {
             setIsAuthenticated(true);
           }
         } catch (profileError) {
+          console.error("Profile fetch error:", profileError);
+          
           // If token is invalid, try refreshing
           if (profileError.status === 401) {
             const refreshed = await refreshAuthToken();
             
             if (refreshed) {
-              // Try getting user profile again
+              // Try getting user profile again with new token
               try {
                 const refreshedUserData = await getUserProfile();
                 setCurrentUser(refreshedUserData);
                 setIsAuthenticated(true);
               } catch (secondError) {
-                // If still fails, log out
+                console.error("Second profile fetch error:", secondError);
                 logout();
               }
             } else {
-              // If refresh fails, log out
               logout();
             }
           } else {
-            // For other errors, log out
             logout();
           }
         }
