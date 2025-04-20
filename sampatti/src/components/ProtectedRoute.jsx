@@ -1,3 +1,4 @@
+// Fixed ProtectedRoute.jsx
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,6 +20,7 @@ const ProtectedRoute = ({ children }) => {
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
+    // Save the intended destination to return after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

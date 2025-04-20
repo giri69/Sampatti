@@ -84,11 +84,60 @@ const fetchApi = async (endpoint, options = {}) => {
 };
 
 // Authentication functions
+// Updated loginUser function in api.js
 export const loginUser = async (email, password) => {
-  return fetchApi('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    // Handle server errors
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Login failed (${response.status})`);
+      } else {
+        throw new Error(`Login failed (${response.status})`);
+      }
+    }
+    
+    // Parse response
+    const data = await response.json();
+    
+    // Check for expected data structure
+    if (!data.access_token) {
+      throw new Error('Invalid response from server');
+    }
+    
+    // If the server doesn't return user info, we'll fetch it
+    if (!data.user && data.access_token) {
+      try {
+        // Set the token temporarily to fetch user data
+        localStorage.setItem('authToken', data.access_token);
+        const userData = await getUserProfile();
+        // Combine the token and user data
+        return {
+          ...data,
+          user: userData
+        };
+      } catch (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        // Return just the token info if profile fetch fails
+        return data;
+      }
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Login API error:', error);
+    throw error;
+  }
 };
 
 export const registerUser = async (userData) => {

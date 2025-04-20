@@ -1,3 +1,4 @@
+// The fixed version of Login.jsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
@@ -17,8 +18,13 @@ const Login = () => {
   const { login } = useAuth();
 
   useEffect(() => {
+    // Clear any previous error/success messages
+    setError('');
+    setSuccessMessage('');
+    
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
+      // Clean up state after reading the message
       window.history.replaceState({}, document.title);
     }
   }, [location]);
@@ -30,35 +36,35 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Step 1: Get tokens via login API
-      const authResponse = await loginUser(email, password);
+      const response = await loginUser(email, password);
       
-      // Step 2: Use the token to get the user profile
-      // Store token temporarily to use for profile request
-      localStorage.setItem('authToken', authResponse.access_token);
-      
-      try {
-        // Get user profile with the new token
-        const userProfile = await getUserProfile();
-        
-        // Now login with all the information
-        login(authResponse.access_token, authResponse.refresh_token, userProfile);
-        
-        const redirectTo = location.state?.from?.pathname || '/dashboard';
-        navigate(redirectTo);
-      } catch (profileError) {
-        console.error('Failed to fetch user profile:', profileError);
-        setError('Authentication successful, but failed to retrieve user profile. Please try again.');
-        // Remove the temporary token if profile fetch fails
-        localStorage.removeItem('authToken');
+      // Check if response has required properties
+      if (!response || !response.access_token) {
+        throw new Error('Invalid response from server');
       }
+      
+      // Update auth context with user data
+      login(
+        response.access_token, 
+        response.refresh_token, 
+        response.user || { email } // Fallback if user object is not provided
+      );
+      
+      // Get redirect path from location state or default to dashboard
+      const redirectTo = location.state?.from?.pathname || '/dashboard';
+      navigate(redirectTo);
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Invalid email or password. Please try again.');
+      setError(
+        err.message === 'Failed to fetch' 
+          ? 'Network error. Please check your internet connection.' 
+          : err.message || 'Invalid email or password. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
   return (
     <div className="w-full">
       <div className="mb-8 flex items-center md:hidden">
@@ -98,6 +104,7 @@ const Login = () => {
               className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Enter your email"
               required
+              disabled={isLoading}
             />
           </div>
         </div>
@@ -118,11 +125,13 @@ const Login = () => {
               className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="••••••••"
               required
+              disabled={isLoading}
             />
             <button
               type="button"
               className="absolute inset-y-0 right-0 pr-3 flex items-center"
               onClick={() => setShowPassword(!showPassword)}
+              disabled={isLoading}
             >
               {showPassword ? (
                 <EyeOff size={18} className="text-gray-500" />
@@ -139,13 +148,18 @@ const Login = () => {
               id="remember-me"
               type="checkbox"
               className="h-4 w-4 rounded border-gray-600 bg-black text-blue-500 focus:ring-blue-500"
+              disabled={isLoading}
             />
             <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
               Remember me
             </label>
           </div>
           
-          <Link to="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
+          <Link 
+            to="/forgot-password" 
+            className="text-sm text-blue-400 hover:text-blue-300"
+            tabIndex={isLoading ? -1 : 0}
+          >
             Forgot password?
           </Link>
         </div>
@@ -171,7 +185,11 @@ const Login = () => {
       
       <p className="mt-8 text-center text-sm text-white">
         Don't have an account?{' '}
-        <Link to="/register" className="font-medium text-blue-400 hover:text-blue-300">
+        <Link 
+          to="/register" 
+          className="font-medium text-blue-400 hover:text-blue-300"
+          tabIndex={isLoading ? -1 : 0}
+        >
           Create an account
         </Link>
       </p>
