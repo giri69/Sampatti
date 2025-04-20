@@ -47,9 +47,9 @@ const AssetDetails = () => {
   }, [id]);
 
   // Calculate ROI (Return on Investment)
-  const calculateROI = (currentValue, totalInvestment) => {
-    if (!totalInvestment) return null;
-    return ((currentValue - totalInvestment) / totalInvestment) * 100;
+  const calculateROI = (current_value, total_investment) => {
+    if (!total_investment) return null;
+    return ((current_value - total_investment) / total_investment) * 100;
   };
 
   // Format currency
@@ -100,7 +100,7 @@ const AssetDetails = () => {
       // Update the local asset state with new value
       setAsset(prev => ({
         ...prev,
-        currentValue: parseFloat(newValue)
+        current_value: parseFloat(newValue)
       }));
       
       // Close modal and reset fields
@@ -159,7 +159,7 @@ const AssetDetails = () => {
   }
 
   // Calculate ROI for this asset
-  const roi = calculateROI(asset.currentValue, asset.totalInvestment);
+  const roi = calculateROI(asset.current_value, asset.total_investment);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -207,7 +207,7 @@ const AssetDetails = () => {
       {/* Asset overview */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">{asset.assetName}</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{asset.asset_name}</h1>
           <div className="flex items-center">
             <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400 mr-3">
               {asset.assetType}
@@ -223,12 +223,12 @@ const AssetDetails = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <p className="text-gray-400 text-sm mb-1">Current Value</p>
-            <p className="text-2xl font-bold text-white">{formatCurrency(asset.currentValue)}</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(asset.current_value)}</p>
           </div>
           
           <div>
             <p className="text-gray-400 text-sm mb-1">Initial Investment</p>
-            <p className="text-2xl font-bold text-white">{formatCurrency(asset.totalInvestment)}</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(asset.total_investment)}</p>
           </div>
           
           <div>
@@ -253,7 +253,7 @@ const AssetDetails = () => {
           
           <div>
             <p className="text-gray-400 text-sm mb-1">Purchase Date</p>
-            <p className="text-2xl font-bold text-white">{formatDate(asset.purchaseDate)}</p>
+            <p className="text-2xl font-bold text-white">{formatDate(asset.purchase_date)}</p>
           </div>
         </div>
       </div>
@@ -267,16 +267,16 @@ const AssetDetails = () => {
           </h2>
           
           <div className="space-y-4">
-            {asset.accountNumber && (
+            {asset.account_number && (
               <div>
                 <p className="text-gray-400 text-sm">Account/Reference Number</p>
-                <p className="text-white">{asset.accountNumber}</p>
+                <p className="text-white">{asset.account_number}</p>
               </div>
             )}
             
             <div>
               <p className="text-gray-400 text-sm">Purchase Price</p>
-              <p className="text-white">{formatCurrency(asset.purchasePrice)}</p>
+              <p className="text-white">{formatCurrency(asset.purchase_price)}</p>
             </div>
             
             <div>
@@ -289,15 +289,15 @@ const AssetDetails = () => {
               <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2 mb-1">
                 <div 
                   className="bg-blue-600 h-2.5 rounded-full" 
-                  style={{ width: `${(asset.riskScore / 5) * 100}%` }}
+                  style={{ width: `${(asset.risk_score / 5) * 100}%` }}
                 ></div>
               </div>
               <p className="text-sm text-blue-400">
-                {asset.riskScore}/5 - {
-                  asset.riskScore === 1 ? 'Very Low Risk' :
-                  asset.riskScore === 2 ? 'Low Risk' :
-                  asset.riskScore === 3 ? 'Medium Risk' :
-                  asset.riskScore === 4 ? 'High Risk' :
+                {asset.risk_score}/5 - {
+                  asset.risk_score === 1 ? 'Very Low Risk' :
+                  asset.risk_score === 2 ? 'Low Risk' :
+                  asset.risk_score === 3 ? 'Medium Risk' :
+                  asset.risk_score === 4 ? 'High Risk' :
                   'Very High Risk'
                 }
               </p>
@@ -308,15 +308,15 @@ const AssetDetails = () => {
               <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2 mb-1">
                 <div 
                   className="bg-green-600 h-2.5 rounded-full" 
-                  style={{ width: `${(asset.liquidityScore / 5) * 100}%` }}
+                  style={{ width: `${(asset.liquidity_score / 5) * 100}%` }}
                 ></div>
               </div>
               <p className="text-sm text-green-400">
-                {asset.liquidityScore}/5 - {
-                  asset.liquidityScore === 1 ? 'Very Low Liquidity' :
-                  asset.liquidityScore === 2 ? 'Low Liquidity' :
-                  asset.liquidityScore === 3 ? 'Medium Liquidity' :
-                  asset.liquidityScore === 4 ? 'High Liquidity' :
+                {asset.liquidity_score}/5 - {
+                  asset.liquidity_score === 1 ? 'Very Low Liquidity' :
+                  asset.liquidity_score === 2 ? 'Low Liquidity' :
+                  asset.liquidity_score === 3 ? 'Medium Liquidity' :
+                  asset.liquidity_score === 4 ? 'High Liquidity' :
                   'Very High Liquidity'
                 }
               </p>
@@ -333,31 +333,31 @@ const AssetDetails = () => {
           <div className="space-y-4">
             <div>
               <p className="text-gray-400 text-sm">Purchase Date</p>
-              <p className="text-white">{formatDate(asset.purchaseDate)}</p>
+              <p className="text-white">{formatDate(asset.purchase_date)}</p>
             </div>
             
             <div>
               <p className="text-gray-400 text-sm">Last Updated</p>
-              <p className="text-white">{formatDate(asset.lastUpdated)}</p>
+              <p className="text-white">{formatDate(asset.updated_at)}</p>
             </div>
             
-            {asset.maturityDate && (
+            {asset.maturity_date && (
               <div>
                 <p className="text-gray-400 text-sm">Maturity Date</p>
-                <p className="text-white">{formatDate(asset.maturityDate)}</p>
+                <p className="text-white">{formatDate(asset.maturity_date)}</p>
               </div>
             )}
             
-            {asset.expectedValue && asset.maturityDate && (
+            {asset.expectedValue && asset.maturity_date && (
               <div className="pt-2 border-t border-gray-700">
                 <p className="text-gray-400 text-sm">Expected Value at Maturity</p>
                 <p className="text-white">{formatCurrency(asset.expectedValue)}</p>
                 
-                {asset.expectedValue && asset.totalInvestment && (
+                {asset.expectedValue && asset.total_investment && (
                   <div className="mt-2">
                     <p className="text-gray-400 text-sm">Expected Return</p>
                     <p className="text-green-400">
-                      {(((asset.expectedValue - asset.totalInvestment) / asset.totalInvestment) * 100).toFixed(2)}%
+                      {(((asset.expectedValue - asset.total_investment) / asset.total_investment) * 100).toFixed(2)}%
                     </p>
                   </div>
                 )}
@@ -450,7 +450,7 @@ const AssetDetails = () => {
           <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 border border-gray-700">
             <h3 className="text-xl font-bold text-white mb-4">Confirm Deletion</h3>
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete <span className="text-white font-medium">{asset.assetName}</span>? 
+              Are you sure you want to delete <span className="text-white font-medium">{asset.asset_name}</span>? 
               This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-4">
@@ -479,7 +479,7 @@ const AssetDetails = () => {
             
             <form onSubmit={handleValueUpdate}>
               <div className="mb-4">
-                <label htmlFor="currentValue" className="block text-sm font-medium mb-2 text-white">
+                <label htmlFor="current_value" className="block text-sm font-medium mb-2 text-white">
                   Current Value <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -487,7 +487,7 @@ const AssetDetails = () => {
                     <span className="text-gray-400">₹</span>
                   </div>
                   <input
-                    id="currentValue"
+                    id="current_value"
                     type="text"
                     value={newValue}
                     onChange={(e) => {

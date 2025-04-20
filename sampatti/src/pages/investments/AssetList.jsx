@@ -20,6 +20,7 @@ const AssetList = () => {
         const data = await getAllAssets();
         setAssets(data);
         setFilteredAssets(data);
+        console.log(data)
       } catch (err) {
         console.error('Error fetching assets:', err);
         setError('Failed to load investments. Please try again.');
@@ -77,9 +78,9 @@ const AssetList = () => {
   };
 
   // Calculate ROI (Return on Investment)
-  const calculateROI = (currentValue, totalInvestment) => {
-    if (!totalInvestment) return null;
-    return ((currentValue - totalInvestment) / totalInvestment) * 100;
+  const calculateROI = (current_value, total_investment) => {
+    if (!total_investment) return null;
+    return ((current_value - total_investment) / total_investment) * 100;
   };
 
   // Format currency
@@ -115,9 +116,9 @@ const AssetList = () => {
   };
 
   // Total portfolio value
-  const totalPortfolioValue = filteredAssets.reduce((sum, asset) => sum + asset.currentValue, 0);
-  const totalInvestment = filteredAssets.reduce((sum, asset) => sum + asset.totalInvestment, 0);
-  const portfolioROI = calculateROI(totalPortfolioValue, totalInvestment);
+  const totalPortfolioValue = filteredAssets.reduce((sum, asset) => sum + asset.current_value, 0);
+  const total_investment = filteredAssets.reduce((sum, asset) => sum + asset.total_investment, 0);
+  const portfolioROI = calculateROI(totalPortfolioValue, total_investment);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -145,7 +146,7 @@ const AssetList = () => {
           </div>
           <div>
             <p className="text-gray-400 text-sm mb-1">Total Investment</p>
-            <p className="text-2xl font-bold text-white">{formatCurrency(totalInvestment)}</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(total_investment)}</p>
           </div>
           <div>
             <p className="text-gray-400 text-sm mb-1">Overall Return</p>
@@ -246,11 +247,11 @@ const AssetList = () => {
                   <th 
                     scope="col" 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer"
-                    onClick={() => requestSort('currentValue')}
+                    onClick={() => requestSort('current_value')}
                   >
                     <div className="flex items-center">
                       Current Value
-                      {sortConfig.key === 'currentValue' && (
+                      {sortConfig.key === 'current_value' && (
                         <span className="ml-1">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
@@ -281,7 +282,7 @@ const AssetList = () => {
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {filteredAssets.map((asset) => {
-                  const roi = calculateROI(asset.currentValue, asset.totalInvestment);
+                  const roi = calculateROI(asset.current_value, asset.total_investment);
                   
                   return (
                     <tr key={asset.id} className="hover:bg-gray-750">
@@ -295,14 +296,14 @@ const AssetList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400">
-                          {asset.assetType}
+                          {asset.asset_type}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {formatCurrency(asset.currentValue)}
+                        {formatCurrency(asset.current_value)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {formatDate(asset.purchaseDate)}
+                        {formatDate(asset.purchase_date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {roi !== null ? (
