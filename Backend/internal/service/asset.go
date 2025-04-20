@@ -36,7 +36,6 @@ func (s *AssetService) GetByID(ctx context.Context, id uuid.UUID, userID uuid.UU
 		return nil, ErrAssetNotFound
 	}
 
-	// Check if user has access to this asset
 	if asset.UserID != userID {
 		return nil, ErrUnauthorized
 	}
@@ -53,7 +52,6 @@ func (s *AssetService) GetByType(ctx context.Context, userID uuid.UUID, assetTyp
 }
 
 func (s *AssetService) Update(ctx context.Context, asset *model.Asset, userID uuid.UUID) error {
-	// Check if asset exists and belongs to user
 	existingAsset, err := s.assetRepo.GetByID(ctx, asset.ID)
 	if err != nil {
 		return ErrAssetNotFound
@@ -63,14 +61,12 @@ func (s *AssetService) Update(ctx context.Context, asset *model.Asset, userID uu
 		return ErrUnauthorized
 	}
 
-	// Preserve user ID to prevent unauthorized changes
 	asset.UserID = existingAsset.UserID
 
 	return s.assetRepo.Update(ctx, asset)
 }
 
 func (s *AssetService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	// Check if asset exists and belongs to user
 	existingAsset, err := s.assetRepo.GetByID(ctx, id)
 	if err != nil {
 		return ErrAssetNotFound
@@ -84,7 +80,6 @@ func (s *AssetService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUI
 }
 
 func (s *AssetService) UpdateValue(ctx context.Context, id uuid.UUID, userID uuid.UUID, value float64, notes string) error {
-	// Check if asset exists and belongs to user
 	existingAsset, err := s.assetRepo.GetByID(ctx, id)
 	if err != nil {
 		return ErrAssetNotFound
@@ -98,7 +93,6 @@ func (s *AssetService) UpdateValue(ctx context.Context, id uuid.UUID, userID uui
 }
 
 func (s *AssetService) GetHistory(ctx context.Context, assetID uuid.UUID, userID uuid.UUID) ([]model.AssetHistory, error) {
-	// Check if asset exists and belongs to user
 	existingAsset, err := s.assetRepo.GetByID(ctx, assetID)
 	if err != nil {
 		return nil, ErrAssetNotFound
@@ -114,12 +108,9 @@ func (s *AssetService) GetHistory(ctx context.Context, assetID uuid.UUID, userID
 func (s *AssetService) GetSummary(ctx context.Context, userID uuid.UUID) (map[string]interface{}, error) {
 	assets, err := s.assetRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		// Log the specific error for debugging purposes
 		log.Printf("Error fetching assets for summary: %v", err)
 
-		// Check if it's specifically a tags scanning error
 		if strings.Contains(err.Error(), "tags") {
-			// Continue with empty assets list rather than failing completely
 			assets = []model.Asset{}
 		} else {
 			return nil, fmt.Errorf("failed to generate summary: %w", err)
@@ -133,7 +124,6 @@ func (s *AssetService) GetSummary(ctx context.Context, userID uuid.UUID) (map[st
 	avgRiskScore := 0.0
 	assetCount := 0
 
-	// Assets that will mature in the next 30 days
 	upcomingMaturities := make([]map[string]interface{}, 0)
 	thirtyDaysFromNow := time.Now().AddDate(0, 0, 30)
 
@@ -142,17 +132,14 @@ func (s *AssetService) GetSummary(ctx context.Context, userID uuid.UUID) (map[st
 		totalInvestment += asset.TotalInvestment
 		assetsByType[asset.AssetType] += asset.CurrentValue
 
-		// Calculate returns - avoid division by zero
 		if asset.TotalInvestment > 0 {
 			assetReturn := ((asset.CurrentValue - asset.TotalInvestment) / asset.TotalInvestment) * 100
 			totalReturn += assetReturn
 		}
 
-		// Sum risk scores
 		avgRiskScore += float64(asset.RiskScore)
 		assetCount++
 
-		// Check for upcoming maturities
 		if asset.MaturityDate != nil && asset.MaturityDate.Before(thirtyDaysFromNow) && asset.MaturityDate.After(time.Now()) {
 			upcomingMaturities = append(upcomingMaturities, map[string]interface{}{
 				"id":             asset.ID,
@@ -163,13 +150,11 @@ func (s *AssetService) GetSummary(ctx context.Context, userID uuid.UUID) (map[st
 		}
 	}
 
-	// Calculate average risk score and return only if there are assets
 	if assetCount > 0 {
 		avgRiskScore = avgRiskScore / float64(assetCount)
 		totalReturn = totalReturn / float64(assetCount)
 	}
 
-	// Return the summary data
 	return map[string]interface{}{
 		"total_value":         totalValue,
 		"total_investment":    totalInvestment,

@@ -18,6 +18,82 @@ func NewAssetRepository(db *sqlx.DB) *AssetRepository {
 	return &AssetRepository{db: db}
 }
 
+type AssetDB struct {
+	ID              uuid.UUID      `db:"id"`
+	UserID          uuid.UUID      `db:"user_id"`
+	AssetName       string         `db:"asset_name"`
+	AssetType       string         `db:"asset_type"`
+	Institution     string         `db:"institution"`
+	AccountNumber   string         `db:"account_number"`
+	PurchaseDate    *time.Time     `db:"purchase_date"`
+	PurchasePrice   float64        `db:"purchase_price"`
+	Quantity        float64        `db:"quantity"`
+	TotalInvestment float64        `db:"total_investment"`
+	CurrentValue    float64        `db:"current_value"`
+	LastUpdated     time.Time      `db:"last_updated"`
+	MaturityDate    *time.Time     `db:"maturity_date"`
+	ExpectedValue   float64        `db:"expected_value"`
+	ReturnRate      float64        `db:"return_rate"`
+	RiskScore       int            `db:"risk_score"`
+	LiquidityScore  int            `db:"liquidity_score"`
+	Notes           string         `db:"notes"`
+	Tags            pq.StringArray `db:"tags"`
+	CreatedAt       time.Time      `db:"created_at"`
+	UpdatedAt       time.Time      `db:"updated_at"`
+}
+
+func toAssetModel(dbAsset AssetDB) model.Asset {
+	return model.Asset{
+		ID:              dbAsset.ID,
+		UserID:          dbAsset.UserID,
+		AssetName:       dbAsset.AssetName,
+		AssetType:       dbAsset.AssetType,
+		Institution:     dbAsset.Institution,
+		AccountNumber:   dbAsset.AccountNumber,
+		PurchaseDate:    dbAsset.PurchaseDate,
+		PurchasePrice:   dbAsset.PurchasePrice,
+		Quantity:        dbAsset.Quantity,
+		TotalInvestment: dbAsset.TotalInvestment,
+		CurrentValue:    dbAsset.CurrentValue,
+		LastUpdated:     dbAsset.LastUpdated,
+		MaturityDate:    dbAsset.MaturityDate,
+		ExpectedValue:   dbAsset.ExpectedValue,
+		ReturnRate:      dbAsset.ReturnRate,
+		RiskScore:       dbAsset.RiskScore,
+		LiquidityScore:  dbAsset.LiquidityScore,
+		Notes:           dbAsset.Notes,
+		Tags:            []string(dbAsset.Tags),
+		CreatedAt:       dbAsset.CreatedAt,
+		UpdatedAt:       dbAsset.UpdatedAt,
+	}
+}
+
+func toAssetDBModel(asset model.Asset) AssetDB {
+	return AssetDB{
+		ID:              asset.ID,
+		UserID:          asset.UserID,
+		AssetName:       asset.AssetName,
+		AssetType:       asset.AssetType,
+		Institution:     asset.Institution,
+		AccountNumber:   asset.AccountNumber,
+		PurchaseDate:    asset.PurchaseDate,
+		PurchasePrice:   asset.PurchasePrice,
+		Quantity:        asset.Quantity,
+		TotalInvestment: asset.TotalInvestment,
+		CurrentValue:    asset.CurrentValue,
+		LastUpdated:     asset.LastUpdated,
+		MaturityDate:    asset.MaturityDate,
+		ExpectedValue:   asset.ExpectedValue,
+		ReturnRate:      asset.ReturnRate,
+		RiskScore:       asset.RiskScore,
+		LiquidityScore:  asset.LiquidityScore,
+		Notes:           asset.Notes,
+		Tags:            pq.StringArray(asset.Tags),
+		CreatedAt:       asset.CreatedAt,
+		UpdatedAt:       asset.UpdatedAt,
+	}
+}
+
 func (r *AssetRepository) Create(ctx context.Context, asset *model.Asset) error {
 	query := `
 		INSERT INTO assets (
@@ -37,37 +113,38 @@ func (r *AssetRepository) Create(ctx context.Context, asset *model.Asset) error 
 	asset.UpdatedAt = time.Now()
 	asset.LastUpdated = time.Now()
 
+	dbAsset := toAssetDBModel(*asset)
+
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		asset.ID,
-		asset.UserID,
-		asset.AssetName,
-		asset.AssetType,
-		asset.Institution,
-		asset.AccountNumber,
-		asset.PurchaseDate,
-		asset.PurchasePrice,
-		asset.Quantity,
-		asset.TotalInvestment,
-		asset.CurrentValue,
-		asset.LastUpdated,
-		asset.MaturityDate,
-		asset.ExpectedValue,
-		asset.ReturnRate,
-		asset.RiskScore,
-		asset.LiquidityScore,
-		asset.Notes,
-		pq.Array(asset.Tags),
-		asset.CreatedAt,
-		asset.UpdatedAt,
+		dbAsset.ID,
+		dbAsset.UserID,
+		dbAsset.AssetName,
+		dbAsset.AssetType,
+		dbAsset.Institution,
+		dbAsset.AccountNumber,
+		dbAsset.PurchaseDate,
+		dbAsset.PurchasePrice,
+		dbAsset.Quantity,
+		dbAsset.TotalInvestment,
+		dbAsset.CurrentValue,
+		dbAsset.LastUpdated,
+		dbAsset.MaturityDate,
+		dbAsset.ExpectedValue,
+		dbAsset.ReturnRate,
+		dbAsset.RiskScore,
+		dbAsset.LiquidityScore,
+		dbAsset.Notes,
+		dbAsset.Tags,
+		dbAsset.CreatedAt,
+		dbAsset.UpdatedAt,
 	)
 
 	if err != nil {
 		return err
 	}
 
-	// Add to asset history
 	historyQuery := `
 		INSERT INTO asset_history (
 			id, asset_id, date, value, action, notes, created_at
@@ -92,7 +169,7 @@ func (r *AssetRepository) Create(ctx context.Context, asset *model.Asset) error 
 }
 
 func (r *AssetRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Asset, error) {
-	var asset model.Asset
+	var dbAsset AssetDB
 	query := `
 		SELECT 
 			id, user_id, asset_name, asset_type, institution, account_number,
@@ -104,16 +181,17 @@ func (r *AssetRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Ass
 		WHERE id = $1
 	`
 
-	err := r.db.GetContext(ctx, &asset, query, id)
+	err := r.db.GetContext(ctx, &dbAsset, query, id)
 	if err != nil {
 		return nil, err
 	}
 
+	asset := toAssetModel(dbAsset)
 	return &asset, nil
 }
 
 func (r *AssetRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]model.Asset, error) {
-	var assets []model.Asset
+	var dbAssets []AssetDB
 	query := `
 		SELECT 
 			id, user_id, asset_name, asset_type, institution, account_number,
@@ -126,16 +204,21 @@ func (r *AssetRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]
 		ORDER BY created_at DESC
 	`
 
-	err := r.db.SelectContext(ctx, &assets, query, userID)
+	err := r.db.SelectContext(ctx, &dbAssets, query, userID)
 	if err != nil {
 		return nil, err
+	}
+
+	assets := make([]model.Asset, len(dbAssets))
+	for i, dbAsset := range dbAssets {
+		assets[i] = toAssetModel(dbAsset)
 	}
 
 	return assets, nil
 }
 
 func (r *AssetRepository) GetByType(ctx context.Context, userID uuid.UUID, assetType string) ([]model.Asset, error) {
-	var assets []model.Asset
+	var dbAssets []AssetDB
 	query := `
 		SELECT 
 			id, user_id, asset_name, asset_type, institution, account_number,
@@ -148,9 +231,14 @@ func (r *AssetRepository) GetByType(ctx context.Context, userID uuid.UUID, asset
 		ORDER BY created_at DESC
 	`
 
-	err := r.db.SelectContext(ctx, &assets, query, userID, assetType)
+	err := r.db.SelectContext(ctx, &dbAssets, query, userID, assetType)
 	if err != nil {
 		return nil, err
+	}
+
+	assets := make([]model.Asset, len(dbAssets))
+	for i, dbAsset := range dbAssets {
+		assets[i] = toAssetModel(dbAsset)
 	}
 
 	return assets, nil
@@ -182,36 +270,36 @@ func (r *AssetRepository) Update(ctx context.Context, asset *model.Asset) error 
 
 	asset.UpdatedAt = time.Now()
 	asset.LastUpdated = time.Now()
+	dbAsset := toAssetDBModel(*asset)
 
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		asset.AssetName,
-		asset.AssetType,
-		asset.Institution,
-		asset.AccountNumber,
-		asset.PurchaseDate,
-		asset.PurchasePrice,
-		asset.Quantity,
-		asset.TotalInvestment,
-		asset.CurrentValue,
-		asset.LastUpdated,
-		asset.MaturityDate,
-		asset.ExpectedValue,
-		asset.ReturnRate,
-		asset.RiskScore,
-		asset.LiquidityScore,
-		asset.Notes,
-		pq.Array(asset.Tags),
-		asset.UpdatedAt,
-		asset.ID,
+		dbAsset.AssetName,
+		dbAsset.AssetType,
+		dbAsset.Institution,
+		dbAsset.AccountNumber,
+		dbAsset.PurchaseDate,
+		dbAsset.PurchasePrice,
+		dbAsset.Quantity,
+		dbAsset.TotalInvestment,
+		dbAsset.CurrentValue,
+		dbAsset.LastUpdated,
+		dbAsset.MaturityDate,
+		dbAsset.ExpectedValue,
+		dbAsset.ReturnRate,
+		dbAsset.RiskScore,
+		dbAsset.LiquidityScore,
+		dbAsset.Notes,
+		dbAsset.Tags,
+		dbAsset.UpdatedAt,
+		dbAsset.ID,
 	)
 
 	if err != nil {
 		return err
 	}
 
-	// Add to asset history
 	historyQuery := `
 		INSERT INTO asset_history (
 			id, asset_id, date, value, action, notes, created_at
@@ -273,7 +361,6 @@ func (r *AssetRepository) UpdateValue(ctx context.Context, id uuid.UUID, value f
 		return err
 	}
 
-	// Add to asset history
 	historyQuery := `
 		INSERT INTO asset_history (
 			id, asset_id, date, value, action, notes, created_at
