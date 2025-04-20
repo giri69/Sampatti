@@ -33,7 +33,12 @@ const AssetDetails = () => {
         
         // Fetch asset history
         const historyData = await getAssetHistory(id);
-        setHistory(historyData);
+        if(!historyData || historyData.length === 0) {
+          setHistory([]);
+        }
+        else{
+          setHistory(historyData);
+        }
         
       } catch (err) {
         console.error('Error fetching asset details:', err);
