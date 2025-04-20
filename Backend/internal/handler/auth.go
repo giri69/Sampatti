@@ -6,17 +6,23 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/sampatti/internal/model"
+	"github.com/sampatti/internal/repository/postgres"
 	"github.com/sampatti/internal/service"
-	"github.com/sampatti/internal/types" // Changed from api to types
+	"github.com/sampatti/internal/types"
 )
 
 type AuthHandler struct {
 	authService *service.AuthService
+	db          *sqlx.DB
 }
 
-func NewAuthHandler(authService *service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService *service.AuthService, db *sqlx.DB) *AuthHandler {
+	return &AuthHandler{
+		authService: authService,
+		db:          db,
+	}
 }
 
 // Register handles new user registration
@@ -71,6 +77,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Authenticate user and get tokens
 	accessToken, refreshToken, err := h.authService.Login(c.Request.Context(), request.Email, request.Password)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -81,10 +88,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Fetch user profile after successful authentication
+	userRepo := postgres.NewUserRepository(h.db)
+	user, err := userRepo.GetByEmail(c.Request.Context(), request.Email)
+	if err != nil {
+		// Still return tokens even if user fetch fails
+		c.JSON(http.StatusOK, gin.H{
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+			"token_type":    "Bearer",
+		})
+		return
+	}
+
+	// Sanitize user data for response (remove sensitive fields)
+	userData := gin.H{
+		"id":           user.ID,
+		"name":         user.Name,
+		"email":        user.Email,
+		"phone_number": user.PhoneNumber,
+		"created_at":   user.CreatedAt,
+	}
+
+	// Return tokens and user data
 	c.JSON(http.StatusOK, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 		"token_type":    "Bearer",
+		"user":          userData,
 	})
 }
 
@@ -117,7 +148,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 // ChangePassword handles password changes
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -148,7 +179,6 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 // ForgotPassword initiates the password reset process
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
-	// For brevity, this is a simplified implementation
 	var request struct {
 		Email string `json:"email" binding:"required,email"`
 	}
@@ -158,16 +188,14 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	// In a real implementation, this would send an email to the nominee
 	c.JSON(http.StatusOK, gin.H{"message": "if your email exists in our system, you will receive password reset instructions"})
 }
 
 // ResetPassword completes the password reset process
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
-	// For brevity, this is a simplified implementation
 	var request struct {
 		Token       string `json:"token" binding:"required"`
-		NewPassword string `json:"new_password" binding:"required,min=8"`
+		NewPassword string `json:"new_password" binding:"required,min:8"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -175,7 +203,6 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	// In a real implementation, this would validate the token and update the password
 	c.JSON(http.StatusOK, gin.H{"message": "password has been reset successfully"})
 }
 

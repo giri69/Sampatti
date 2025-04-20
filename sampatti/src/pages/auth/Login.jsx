@@ -30,12 +30,28 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const response = await loginUser(email, password);
+      // Step 1: Get tokens via login API
+      const authResponse = await loginUser(email, password);
       
-      login(response.access_token, response.refresh_token, response.user);
+      // Step 2: Use the token to get the user profile
+      // Store token temporarily to use for profile request
+      localStorage.setItem('authToken', authResponse.access_token);
       
-      const redirectTo = location.state?.from?.pathname || '/dashboard';
-      navigate(redirectTo);
+      try {
+        // Get user profile with the new token
+        const userProfile = await getUserProfile();
+        
+        // Now login with all the information
+        login(authResponse.access_token, authResponse.refresh_token, userProfile);
+        
+        const redirectTo = location.state?.from?.pathname || '/dashboard';
+        navigate(redirectTo);
+      } catch (profileError) {
+        console.error('Failed to fetch user profile:', profileError);
+        setError('Authentication successful, but failed to retrieve user profile. Please try again.');
+        // Remove the temporary token if profile fetch fails
+        localStorage.removeItem('authToken');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || 'Invalid email or password. Please try again.');
@@ -43,7 +59,6 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="w-full">
       <div className="mb-8 flex items-center md:hidden">

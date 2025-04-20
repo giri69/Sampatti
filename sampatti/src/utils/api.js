@@ -8,9 +8,14 @@ const fetchApi = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
+  // Get token from localStorage
   const token = localStorage.getItem('authToken');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    // Debug logging - can be removed in production
+    console.log('Using auth token:', token.substring(0, 10) + '...');
+  } else {
+    console.log('No auth token found');
   }
 
   const config = {
@@ -19,7 +24,10 @@ const fetchApi = async (endpoint, options = {}) => {
   };
 
   try {
-    console.log(`Making request to: ${url}`, { method: options.method, body: options.body });
+    console.log(`Requesting: ${url}`, { 
+      method: options.method || 'GET',
+      headers: { ...headers, Authorization: headers.Authorization ? 'Bearer ***' : 'none' }
+    });
     
     const response = await fetch(url, config);
     
@@ -29,15 +37,27 @@ const fetchApi = async (endpoint, options = {}) => {
                 `Content-Type: ${contentType}`,
                 response.ok ? 'Success' : 'Failed');
     
+    // Enhanced error handling
     if (!response.ok) {
       let errorMessage;
-      if (contentType && contentType.includes('application/json')) {
-        const errorData = await response.json();
-        errorMessage = errorData.error || `HTTP error ${response.status}`;
-      } else {
-        errorMessage = await response.text() || `HTTP error ${response.status}`;
+      let errorDetails = {};
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || `HTTP error ${response.status}`;
+          errorDetails = errorData;
+        } else {
+          errorMessage = await response.text() || `HTTP error ${response.status}`;
+        }
+      } catch (parseError) {
+        errorMessage = `HTTP error ${response.status}`;
       }
-      throw new Error(errorMessage);
+      
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.details = errorDetails;
+      throw error;
     }
     
     if (contentType && contentType.includes('application/json')) {
@@ -47,6 +67,18 @@ const fetchApi = async (endpoint, options = {}) => {
     }
   } catch (error) {
     console.error('API request failed:', error);
+    // Enrich error with additional context
+    if (!error.status) {
+      error.status = 0; // Network error
+      error.message = error.message || 'Network error. Please check your connection.';
+    }
+    
+    // Special handling for auth errors (401)
+    if (error.status === 401) {
+      // Could add token refresh logic here
+      console.warn('Authentication error, token may be invalid or expired');
+    }
+    
     throw error;
   }
 };
