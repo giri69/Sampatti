@@ -1,25 +1,39 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 
-// Layout and Protection
+// Layouts
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
-import ProtectedRoute from './components/ProtectedRoute';
-
-// Pages
 import HomePage from './pages/HomePage';
-import Register from './pages/auth/Register';
-import Login from './pages/auth/Login';
-import ForgotPassword from './pages/auth/ForgotPassword';
 
-// Lazy-loaded pages
+// Auth Pages
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+ 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Investments = lazy(() => import('./pages/Investments'));
+const AssetList = lazy(() => import('./pages/investments/AssetList'));
+const AddAsset = lazy(() => import('./pages/investments/AddAsset'));
+const AssetDetails = lazy(() => import('./pages/investments/AssetDetails'));
+const EditAsset = lazy(() => import('./pages/investments/EditAsset'));
+ 
 const Documents = lazy(() => import('./pages/Documents'));
 const Nominees = lazy(() => import('./pages/Nominees'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+
+// Auth Guard HOC
+const PrivateRoute = ({ children }) => {
+  const isAuthenticated = localStorage.getItem('isLoggedIn') === 'true';
+  
+  if (!isAuthenticated) {
+    // Redirect to login with return path
+    return <Navigate to="/login" state={{ from: window.location }} replace />;
+  }
+  
+  return children;
+};
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -47,12 +61,19 @@ function App() {
         
         {/* Protected Routes */}
         <Route element={
-          <ProtectedRoute>
+          <PrivateRoute>
             <MainLayout />
-          </ProtectedRoute>
+          </PrivateRoute>
         }>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/investments" element={<Investments />} />
+          
+          {/* Investment Routes */}
+          <Route path="/investments" element={<AssetList />} />
+          <Route path="/investments/add" element={<AddAsset />} />
+          <Route path="/investments/:id" element={<AssetDetails />} />
+          <Route path="/investments/:id/edit" element={<EditAsset />} />
+          
+          {/* Other protected routes */}
           <Route path="/documents" element={<Documents />} />
           <Route path="/nominees" element={<Nominees />} />
           <Route path="/alerts" element={<Alerts />} />
