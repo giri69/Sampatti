@@ -1,37 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, HelpCircle, ArrowLeft } from 'lucide-react';
 
-// This component would be placed in src/pages/investments/AddAsset.jsx
-
 const AddAsset = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   
-  // Asset form data
   const [formData, setFormData] = useState({
-    assetName: '',
-    assetType: 'Stock',
+    asset_name: '',
+    asset_type: 'Stock',
     institution: '',
-    accountNumber: '',
-    purchaseDate: '',
-    purchasePrice: '',
+    account_number: '',
+   purchase_date: '',
+    purchase_price: '',
     quantity: '1',
-    totalInvestment: '',
-    currentValue: '',
-    maturityDate: '',
-    expectedValue: '',
-    riskScore: '3',
-    liquidityScore: '3',
+    total_investment: '',
+    current_value: '',
+    last_updated: new Date().toISOString().split('T')[0],
+    maturity_date: '',
+    expected_value: '',
+    return_rate: '',
+    risk_score: '3',
+    liquidity_score: '3',
     notes: '',
     tags: []
   });
   
-  // Tag input state
   const [tagInput, setTagInput] = useState('');
   
-  // Asset types based on backend data model
-  const assetTypes = [
+  const asset_types = [
     'Stock',
     'MutualFund',
     'FixedDeposit',
@@ -46,7 +43,6 @@ const AddAsset = () => {
     'Other'
   ];
 
-  // Risk and liquidity score descriptions
   const riskDescriptions = {
     '1': 'Very Low Risk',
     '2': 'Low Risk',
@@ -63,21 +59,33 @@ const AddAsset = () => {
     '5': 'Very High (Easily convertible to cash)',
   };
 
-  // Calculate total investment when price or quantity changes
   useEffect(() => {
-    if (formData.purchasePrice && formData.quantity) {
-      const price = parseFloat(formData.purchasePrice);
+    if (formData.purchase_price && formData.quantity) {
+      const price = parseFloat(formData.purchase_price);
       const qty = parseFloat(formData.quantity);
       if (!isNaN(price) && !isNaN(qty)) {
         setFormData(prev => ({
           ...prev,
-          totalInvestment: (price * qty).toFixed(2)
+          total_investment: (price * qty).toFixed(2)
         }));
       }
     }
-  }, [formData.purchasePrice, formData.quantity]);
+  }, [formData.purchase_price, formData.quantity]);
+  
+  useEffect(() => {
+    if (formData.purchase_price && formData.current_value && formData.total_investment) {
+      const investment = parseFloat(formData.total_investment);
+      const current = parseFloat(formData.current_value);
+      if (!isNaN(investment) && !isNaN(current) && investment > 0) {
+        const rate = ((current - investment) / investment) * 100;
+        setFormData(prev => ({
+          ...prev,
+          return_rate: rate.toFixed(2)
+        }));
+      }
+    }
+  }, [formData.purchase_price, formData.current_value, formData.total_investment]);
 
-  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -86,10 +94,8 @@ const AddAsset = () => {
     }));
   };
   
-  // Handle number input to ensure proper formatting
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
-    // Allow empty or valid number input
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setFormData(prev => ({
         ...prev,
@@ -98,12 +104,10 @@ const AddAsset = () => {
     }
   };
 
-  // Handle tag input
   const handleTagInput = (e) => {
     setTagInput(e.target.value);
   };
   
-  // Add a tag
   const addTag = () => {
     if (tagInput.trim() !== '' && !formData.tags.includes(tagInput.trim())) {
       setFormData(prev => ({
@@ -114,7 +118,6 @@ const AddAsset = () => {
     }
   };
   
-  // Handle Enter key in tag input
   const handleTagKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -122,7 +125,6 @@ const AddAsset = () => {
     }
   };
   
-  // Remove a tag
   const removeTag = (tagToRemove) => {
     setFormData(prev => ({
       ...prev,
@@ -130,33 +132,33 @@ const AddAsset = () => {
     }));
   };
 
-  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     
     try {
-      // Format data for API
       const apiData = {
         ...formData,
-        purchasePrice: parseFloat(formData.purchasePrice),
+        purchase_price: parseFloat(formData.purchase_price),
         quantity: parseFloat(formData.quantity),
-        totalInvestment: parseFloat(formData.totalInvestment),
-        currentValue: parseFloat(formData.currentValue),
-        expectedValue: formData.expectedValue ? parseFloat(formData.expectedValue) : 0,
-        riskScore: parseInt(formData.riskScore),
-        liquidityScore: parseInt(formData.liquidityScore),
+        total_investment: parseFloat(formData.total_investment),
+        current_value: parseFloat(formData.current_value),
+        expected_value: formData.expected_value ? parseFloat(formData.expected_value) : 0,
+        return_rate: formData.return_rate ? parseFloat(formData.return_rate) : 0,
+        risk_score: parseInt(formData.risk_score),
+        liquidity_score: parseInt(formData.liquidity_score),
+        last_updated: new Date().toISOString(),
+       purchase_date: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : null,
+        maturity_date: formData.maturity_date ? new Date(formData.maturity_date).toISOString() : null
       };
       
-      // Remove empty fields to avoid backend validation issues
       Object.keys(apiData).forEach(key => {
         if (apiData[key] === '' || apiData[key] === null) {
           delete apiData[key];
         }
       });
       
-      // Submit data to API
       const token = localStorage.getItem('authToken');
       const response = await fetch('/api/v1/assets', {
         method: 'POST',
@@ -172,10 +174,8 @@ const AddAsset = () => {
         throw new Error(errorData.error || 'Failed to create asset');
       }
       
-      // Handle success
       setSuccess(true);
       
-      // Redirect to investments list after a short delay
       setTimeout(() => {
         window.location.href = '/investments';
       }, 2000);
@@ -190,7 +190,6 @@ const AddAsset = () => {
 
   return (
     <div className="max-w-4xl mx-auto pb-12">
-      {/* Header */}
       <div className="mb-8">
         <a href="/investments" className="flex items-center text-blue-400 hover:text-blue-300 mb-4">
           <ArrowLeft size={16} className="mr-2" />
@@ -202,33 +201,29 @@ const AddAsset = () => {
         </p>
       </div>
       
-      {/* Error message */}
       {error && (
         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
           {error}
         </div>
       )}
       
-      {/* Success message */}
       {success && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-lg text-green-400">
           Investment added successfully! Redirecting...
         </div>
       )}
       
-      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Asset name */}
           <div>
-            <label htmlFor="assetName" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="asset_name" className="block text-sm font-medium mb-2 text-white">
               Investment Name <span className="text-red-400">*</span>
             </label>
             <input
-              id="assetName"
-              name="assetName"
+              id="asset_name"
+              name="asset_name"
               type="text"
-              value={formData.assetName}
+              value={formData.asset_name}
               onChange={handleChange}
               className="block w-full px-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -238,28 +233,26 @@ const AddAsset = () => {
             />
           </div>
           
-          {/* Asset type */}
           <div>
-            <label htmlFor="assetType" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="asset_type" className="block text-sm font-medium mb-2 text-white">
               Investment Type <span className="text-red-400">*</span>
             </label>
             <select
-              id="assetType"
-              name="assetType"
-              value={formData.assetType}
+              id="asset_type"
+              name="asset_type"
+              value={formData.asset_type}
               onChange={handleChange}
               className="block w-full px-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent 
                          transition-colors text-white"
               required
             >
-              {assetTypes.map(type => (
+              {asset_types.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
           </div>
           
-          {/* Institution */}
           <div>
             <label htmlFor="institution" className="block text-sm font-medium mb-2 text-white">
               Institution / Platform
@@ -277,16 +270,15 @@ const AddAsset = () => {
             />
           </div>
           
-          {/* Account number */}
           <div>
-            <label htmlFor="accountNumber" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="account_number" className="block text-sm font-medium mb-2 text-white">
               Account / Reference Number
             </label>
             <input
-              id="accountNumber"
-              name="accountNumber"
+              id="account_number"
+              name="account_number"
               type="text"
-              value={formData.accountNumber}
+              value={formData.account_number}
               onChange={handleChange}
               className="block w-full px-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -295,7 +287,6 @@ const AddAsset = () => {
             />
           </div>
           
-          {/* Purchase date */}
           <div>
             <label htmlFor="purchaseDate" className="block text-sm font-medium mb-2 text-white">
               Purchase Date
@@ -312,9 +303,8 @@ const AddAsset = () => {
             />
           </div>
           
-          {/* Purchase price */}
           <div>
-            <label htmlFor="purchasePrice" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="purchase_price" className="block text-sm font-medium mb-2 text-white">
               Purchase Price <span className="text-red-400">*</span>
             </label>
             <div className="relative">
@@ -322,10 +312,10 @@ const AddAsset = () => {
                 <span className="text-gray-400">₹</span>
               </div>
               <input
-                id="purchasePrice"
-                name="purchasePrice"
+                id="purchase_price"
+                name="purchase_price"
                 type="text"
-                value={formData.purchasePrice}
+                value={formData.purchase_price}
                 onChange={handleNumberChange}
                 className="block w-full pl-8 pr-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                            focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -336,7 +326,6 @@ const AddAsset = () => {
             </div>
           </div>
           
-          {/* Quantity */}
           <div>
             <label htmlFor="quantity" className="block text-sm font-medium mb-2 text-white">
               Quantity
@@ -354,9 +343,8 @@ const AddAsset = () => {
             />
           </div>
           
-          {/* Total investment */}
           <div>
-            <label htmlFor="totalInvestment" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="total_investment" className="block text-sm font-medium mb-2 text-white">
               Total Investment <span className="text-red-400">*</span>
             </label>
             <div className="relative">
@@ -364,10 +352,10 @@ const AddAsset = () => {
                 <span className="text-gray-400">₹</span>
               </div>
               <input
-                id="totalInvestment"
-                name="totalInvestment"
+                id="total_investment"
+                name="total_investment"
                 type="text"
-                value={formData.totalInvestment}
+                value={formData.total_investment}
                 onChange={handleNumberChange}
                 className="block w-full pl-8 pr-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                            focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -378,9 +366,8 @@ const AddAsset = () => {
             </div>
           </div>
           
-          {/* Current value */}
           <div>
-            <label htmlFor="currentValue" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="current_value" className="block text-sm font-medium mb-2 text-white">
               Current Value <span className="text-red-400">*</span>
             </label>
             <div className="relative">
@@ -388,10 +375,10 @@ const AddAsset = () => {
                 <span className="text-gray-400">₹</span>
               </div>
               <input
-                id="currentValue"
-                name="currentValue"
+                id="current_value"
+                name="current_value"
                 type="text"
-                value={formData.currentValue}
+                value={formData.current_value}
                 onChange={handleNumberChange}
                 className="block w-full pl-8 pr-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                            focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -402,17 +389,16 @@ const AddAsset = () => {
             </div>
           </div>
           
-          {/* Maturity date (conditional based on asset type) */}
-          {['FixedDeposit', 'Bond', 'PPF', 'Insurance'].includes(formData.assetType) && (
+          {['FixedDeposit', 'Bond', 'PPF', 'Insurance'].includes(formData.asset_type) && (
             <div>
-              <label htmlFor="maturityDate" className="block text-sm font-medium mb-2 text-white">
+              <label htmlFor="maturity_date" className="block text-sm font-medium mb-2 text-white">
                 Maturity Date
               </label>
               <input
-                id="maturityDate"
-                name="maturityDate"
+                id="maturity_date"
+                name="maturity_date"
                 type="date"
-                value={formData.maturityDate}
+                value={formData.maturity_date}
                 onChange={handleChange}
                 className="block w-full px-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                            focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -421,10 +407,9 @@ const AddAsset = () => {
             </div>
           )}
           
-          {/* Expected value at maturity (conditional) */}
-          {['FixedDeposit', 'Bond', 'PPF', 'Insurance'].includes(formData.assetType) && (
+          {['FixedDeposit', 'Bond', 'PPF', 'Insurance'].includes(formData.asset_type) && (
             <div>
-              <label htmlFor="expectedValue" className="block text-sm font-medium mb-2 text-white">
+              <label htmlFor="expected_value" className="block text-sm font-medium mb-2 text-white">
                 Expected Value at Maturity
               </label>
               <div className="relative">
@@ -432,10 +417,10 @@ const AddAsset = () => {
                   <span className="text-gray-400">₹</span>
                 </div>
                 <input
-                  id="expectedValue"
-                  name="expectedValue"
+                  id="expected_value"
+                  name="expected_value"
                   type="text"
-                  value={formData.expectedValue}
+                  value={formData.expected_value}
                   onChange={handleNumberChange}
                   className="block w-full pl-8 pr-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent 
@@ -445,12 +430,49 @@ const AddAsset = () => {
               </div>
             </div>
           )}
+          
+          <div>
+            <label htmlFor="return_rate" className="block text-sm font-medium mb-2 text-white">
+              Return Rate (%)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <span className="text-gray-400">%</span>
+              </div>
+              <input
+                id="return_rate"
+                name="return_rate"
+                type="text"
+                value={formData.return_rate}
+                onChange={handleNumberChange}
+                className="block w-full px-3 pr-8 py-2 border border-gray-700 bg-gray-900 rounded-lg 
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent 
+                           transition-colors text-white placeholder-gray-400"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="last_updated" className="block text-sm font-medium mb-2 text-white">
+              Last Updated
+            </label>
+            <input
+              id="last_updated"
+              name="last_updated"
+              type="date"
+              value={formData.last_updated}
+              onChange={handleChange}
+              className="block w-full px-3 py-2 border border-gray-700 bg-gray-900 rounded-lg 
+                         focus:ring-2 focus:ring-blue-500 focus:border-transparent 
+                         transition-colors text-white"
+            />
+          </div>
         </div>
         
-        {/* Risk and liquidity scores */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
-            <label htmlFor="riskScore" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="risk_score" className="block text-sm font-medium mb-2 text-white">
               Risk Score
               <span className="ml-2 inline-flex items-center">
                 <HelpCircle size={16} className="text-gray-400" />
@@ -458,12 +480,12 @@ const AddAsset = () => {
             </label>
             <div className="mt-1">
               <input
-                id="riskScore"
-                name="riskScore"
+                id="risk_score"
+                name="risk_score"
                 type="range"
                 min="1"
                 max="5"
-                value={formData.riskScore}
+                value={formData.risk_score}
                 onChange={handleChange}
                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
@@ -475,13 +497,13 @@ const AddAsset = () => {
                 <span>Very High</span>
               </div>
               <p className="mt-1 text-sm text-blue-400">
-                {riskDescriptions[formData.riskScore]}
+                {riskDescriptions[formData.risk_score]}
               </p>
             </div>
           </div>
           
           <div>
-            <label htmlFor="liquidityScore" className="block text-sm font-medium mb-2 text-white">
+            <label htmlFor="liquidity_score" className="block text-sm font-medium mb-2 text-white">
               Liquidity Score
               <span className="ml-2 inline-flex items-center">
                 <HelpCircle size={16} className="text-gray-400" />
@@ -489,12 +511,12 @@ const AddAsset = () => {
             </label>
             <div className="mt-1">
               <input
-                id="liquidityScore"
-                name="liquidityScore"
+                id="liquidity_score"
+                name="liquidity_score"
                 type="range"
                 min="1"
                 max="5"
-                value={formData.liquidityScore}
+                value={formData.liquidity_score}
                 onChange={handleChange}
                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
@@ -506,13 +528,12 @@ const AddAsset = () => {
                 <span>Very High</span>
               </div>
               <p className="mt-1 text-sm text-blue-400">
-                {liquidityDescriptions[formData.liquidityScore]}
+                {liquidityDescriptions[formData.liquidity_score]}
               </p>
             </div>
           </div>
         </div>
         
-        {/* Notes */}
         <div className="mt-6">
           <label htmlFor="notes" className="block text-sm font-medium mb-2 text-white">
             Notes
@@ -530,7 +551,6 @@ const AddAsset = () => {
           ></textarea>
         </div>
         
-        {/* Tags */}
         <div className="mt-6">
           <label className="block text-sm font-medium mb-2 text-white">
             Tags
@@ -573,7 +593,6 @@ const AddAsset = () => {
           </div>
         </div>
         
-        {/* Submit button */}
         <div className="flex justify-end mt-8">
           <a
             href="/investments"

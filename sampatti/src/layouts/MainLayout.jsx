@@ -126,19 +126,6 @@ const MainLayout = () => {
               </li>
               <li className="mb-2">
                 <NavLink 
-                  to="/alerts" 
-                  className={({isActive}) => 
-                    isActive 
-                      ? "flex items-center p-3 rounded-lg bg-indigo-600 text-white" 
-                      : "flex items-center p-3 rounded-lg hover:bg-gray-700 text-gray-300"
-                  }
-                >
-                  <Bell size={20} className="mr-3" />
-                  <span>Alerts</span>
-                </NavLink>
-              </li>
-              <li className="mb-2">
-                <NavLink 
                   to="/settings" 
                   className={({isActive}) => 
                     isActive 
@@ -223,19 +210,6 @@ const MainLayout = () => {
                 </li>
                 <li className="mb-2">
                   <NavLink 
-                    to="/alerts" 
-                    className={({isActive}) => 
-                      isActive 
-                        ? "flex items-center p-4 rounded-lg bg-indigo-600 text-white" 
-                        : "flex items-center p-4 rounded-lg hover:bg-gray-700 text-gray-300"
-                    }
-                  >
-                    <Bell size={20} className="mr-3" />
-                    <span>Alerts</span>
-                  </NavLink>
-                </li>
-                <li className="mb-2">
-                  <NavLink 
                     to="/settings" 
                     className={({isActive}) => 
                       isActive 
@@ -267,17 +241,6 @@ const MainLayout = () => {
           <header className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-white">{pageTitle}</h2>
             <div className="flex items-center space-x-4">
-              <NavLink 
-                to="/alerts" 
-                className={({isActive}) => 
-                  isActive 
-                    ? "relative p-2 rounded-full bg-indigo-600 text-white" 
-                    : "relative p-2 rounded-full hover:bg-gray-700 text-gray-300"
-                }
-              >
-                <Bell size={20} />
-                <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
-              </NavLink>
               <div className="flex items-center">
                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium">
                   {getUserInitials()}

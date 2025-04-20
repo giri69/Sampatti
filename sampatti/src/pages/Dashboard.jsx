@@ -187,17 +187,10 @@ const Dashboard = () => {
       try {
         // Load portfolio summary
         const data = await getDashboardSummary();
+        console.log('Dashboard Data:', data);
         setPortfolioData(data);
         setHasInvestments(data.asset_count > 0);
-        
-        // Load alerts
-        try {
-          const alertsData = await getAlerts();
-          setAlerts(alertsData.slice(0, 3)); // Show only top 3 alerts
-        } catch (alertError) {
-          console.error('Failed to load alerts:', alertError);
-          setAlerts([]);
-        }
+      
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
         setError('Failed to load dashboard data. Please try again.');
@@ -370,7 +363,7 @@ const Dashboard = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm mb-1">Average Risk Score</p>
-              <h3 className="text-2xl font-bold text-white">{portfolioSummary.average_risk_score?.toFixed(1) || '0'}/5</h3>
+              <h3 className="text-2xl font-bold text-white">{portfolioSummary.average_risk_score?.toFixed(1)-1 || '0'}/5</h3>
             </div>
             <div className="p-2 bg-purple-500/20 rounded-lg">
               <LineChart size={20} className="text-purple-400" />

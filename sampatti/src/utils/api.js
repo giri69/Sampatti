@@ -315,7 +315,7 @@ export const dismissAlert = async (alertId) => {
 
 // Dashboard data
 export const getDashboardSummary = async () => {
-  return getPortfolioSummary(); // Dashboard summary is the same as portfolio summary
+  return getPortfolioSummary(); 
 };
 
 // Export all functions
