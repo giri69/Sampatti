@@ -1,9 +1,11 @@
-// The fixed version of Login.jsx
+// src/pages/auth/Login.jsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import { loginUser } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import Button from '../../components/common/Button';
+import ErrorState from '../../components/common/ErrorState';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,10 +20,7 @@ const Login = () => {
   const { login } = useAuth();
 
   useEffect(() => {
-    // Clear any previous error/success messages
-    setError('');
-    setSuccessMessage('');
-    
+    // Check for messages from redirects
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
       // Clean up state after reading the message
@@ -47,7 +46,7 @@ const Login = () => {
       login(
         response.access_token, 
         response.refresh_token, 
-        response.user || { email } // Fallback if user object is not provided
+        response.user || { email } // Use user data from response or fallback
       );
       
       // Get redirect path from location state or default to dashboard
@@ -76,9 +75,7 @@ const Login = () => {
       <p className="text-gray-400 mb-8">Welcome back! Please enter your details.</p>
       
       {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
-          {error}
-        </div>
+        <ErrorState message={error} />
       )}
       
       {successMessage && (
@@ -164,23 +161,14 @@ const Login = () => {
           </Link>
         </div>
         
-        <button
+        <Button
           type="submit"
-          disabled={isLoading}
-          className="w-full py-3 px-4 bg-white text-black font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+          variant="white"
+          isLoading={isLoading}
+          className="w-full"
         >
-          {isLoading ? (
-            <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Signing in...
-            </span>
-          ) : (
-            "Sign in"
-          )}
-        </button>
+          Sign in
+        </Button>
       </form>
       
       <p className="mt-8 text-center text-sm text-white">

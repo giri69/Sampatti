@@ -1,7 +1,13 @@
+// src/pages/auth/Register.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Lock, Mail, User, Eye, EyeOff, Phone } from 'lucide-react';
+import { Lock, Mail, User, Phone } from 'lucide-react';
 import { registerUser } from '../../utils/api';
+
+// Import common components
+import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
+import ErrorState from '../../components/common/ErrorState';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -9,8 +15,7 @@ const Register = () => {
     email: '',
     phone_number: '',
     password: '',
-    confirmPassword: '',
-    date_of_birth: null
+    confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,9 +53,6 @@ const Register = () => {
       // Prepare data for API - remove confirmPassword as it's not needed on backend
       const { confirmPassword, ...apiData } = formData;
       
-      // Log the request data for debugging
-      console.log('Sending registration data:', apiData);
-      
       // Call the registration API
       await registerUser(apiData);
       
@@ -81,131 +83,69 @@ const Register = () => {
       <h2 className="text-3xl font-bold mb-2 text-white">Create your account</h2>
       <p className="text-gray-400 mb-8">Start tracking your investments securely.</p>
       
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
       
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium mb-2 text-white">
-            Full Name
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <User size={18} className="text-gray-500" />
-            </div>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
-              placeholder="Enter your full name"
-              required
-            />
-          </div>
-        </div>
+        <Input
+          label="Full Name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Enter your full name"
+          icon={<User size={18} className="text-gray-500" />}
+          required
+        />
         
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-2 text-white">
-            Email
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail size={18} className="text-gray-500" />
-            </div>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-        </div>
+        <Input
+          label="Email"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="Enter your email"
+          icon={<Mail size={18} className="text-gray-500" />}
+          required
+        />
         
-        <div>
-          <label htmlFor="phone_number" className="block text-sm font-medium mb-2 text-white">
-            Phone Number (Optional)
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Phone size={18} className="text-gray-500" />
-            </div>
-            <input
-              id="phone_number"
-              name="phone_number"
-              type="tel"
-              value={formData.phone_number}
-              onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
-              placeholder="Enter your phone number"
-            />
-          </div>
-        </div>
+        <Input
+          label="Phone Number (Optional)"
+          name="phone_number"
+          type="tel"
+          value={formData.phone_number}
+          onChange={handleChange}
+          placeholder="Enter your phone number"
+          icon={<Phone size={18} className="text-gray-500" />}
+        />
         
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-2 text-white">
-            Password
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock size={18} className="text-gray-500" />
-            </div>
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handleChange}
-              className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
-              placeholder="Create a strong password"
-              required
-              minLength="8"
-            />
-            <button
-              type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? (
-                <EyeOff size={18} className="text-gray-500" />
-              ) : (
-                <Eye size={18} className="text-gray-500" />
-              )}
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Must be at least 8 characters long
-          </p>
-        </div>
+        <Input
+          label="Password"
+          name="password"
+          type="password"
+          value={formData.password}
+          onChange={handleChange}
+          placeholder="Create a strong password"
+          icon={<Lock size={18} className="text-gray-500" />}
+          showPasswordToggle
+          showPassword={showPassword}
+          onTogglePassword={() => setShowPassword(!showPassword)}
+          hint="Must be at least 8 characters long"
+          required
+          minLength="8"
+        />
         
-        <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2 text-white">
-            Confirm Password
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock size={18} className="text-gray-500" />
-            </div>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type={showPassword ? "text" : "password"}
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
-              placeholder="Confirm your password"
-              required
-            />
-          </div>
-        </div>
+        <Input
+          label="Confirm Password"
+          name="confirmPassword"
+          type="password"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          placeholder="Confirm your password"
+          icon={<Lock size={18} className="text-gray-500" />}
+          showPasswordToggle
+          showPassword={showPassword}
+          onTogglePassword={() => setShowPassword(!showPassword)}
+          required
+        />
         
         <div className="flex items-start pt-2">
           <input
@@ -222,23 +162,14 @@ const Register = () => {
           </label>
         </div>
         
-        <button
+        <Button
           type="submit"
-          disabled={isLoading}
-          className="w-full py-3 px-4 bg-white text-black font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition-colors mt-4"
+          variant="white"
+          isLoading={isLoading}
+          className="w-full mt-4"
         >
-          {isLoading ? (
-            <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Creating account...
-            </span>
-          ) : (
-            "Create account"
-          )}
-        </button>
+          Create account
+        </Button>
       </form>
       
       <p className="mt-8 text-center text-sm text-white">

@@ -1,5 +1,7 @@
+// src/utils/api.js
 const API_BASE_URL = '/api/v1';
 
+// Generic API fetching function with authentication and error handling
 const fetchApi = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
@@ -8,14 +10,10 @@ const fetchApi = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  // Get token from localStorage
+  // Add authorization header if token exists
   const token = localStorage.getItem('authToken');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-    // Debug logging - can be removed in production
-    console.log('Using auth token:', token.substring(0, 10) + '...');
-  } else {
-    console.log('No auth token found');
   }
 
   const config = {
@@ -24,24 +22,15 @@ const fetchApi = async (endpoint, options = {}) => {
   };
 
   try {
-    console.log(`Requesting: ${url}`, { 
-      method: options.method || 'GET',
-      headers: { ...headers, Authorization: headers.Authorization ? 'Bearer ***' : 'none' }
-    });
-    
     const response = await fetch(url, config);
     
-    const contentType = response.headers.get('content-type');
-    
-    console.log(`Response status: ${response.status}`, 
-                `Content-Type: ${contentType}`,
-                response.ok ? 'Success' : 'Failed');
-    
-    // Enhanced error handling
+    // Handle non-OK responses
     if (!response.ok) {
+      const contentType = response.headers.get('content-type');
       let errorMessage;
       let errorDetails = {};
       
+      // Try to parse error as JSON if possible
       try {
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
@@ -54,88 +43,48 @@ const fetchApi = async (endpoint, options = {}) => {
         errorMessage = `HTTP error ${response.status}`;
       }
       
+      // Create rich error object
       const error = new Error(errorMessage);
       error.status = response.status;
       error.details = errorDetails;
       throw error;
     }
     
+    // Parse response based on content type
+    const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       return await response.json();
     } else {
       return await response.text();
     }
   } catch (error) {
-    console.error('API request failed:', error);
-    // Enrich error with additional context
+    // Add status code for network errors
     if (!error.status) {
-      error.status = 0; // Network error
+      error.status = 0;
       error.message = error.message || 'Network error. Please check your connection.';
     }
     
-    // Special handling for auth errors (401)
+    // Handle authentication errors - could trigger token refresh here
     if (error.status === 401) {
-      // Could add token refresh logic here
-      console.warn('Authentication error, token may be invalid or expired');
+      console.warn('Authentication error - token may be invalid or expired');
+      // Could implement token refresh here
     }
     
     throw error;
   }
 };
 
-// Authentication functions
-// Updated loginUser function in api.js
+// Auth API functions
 export const loginUser = async (email, password) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const data = await fetchApi('/auth/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ email, password }),
     });
     
-    // Handle server errors
-    if (!response.ok) {
-      const contentType = response.headers.get('content-type');
-      
-      if (contentType && contentType.includes('application/json')) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Login failed (${response.status})`);
-      } else {
-        throw new Error(`Login failed (${response.status})`);
-      }
-    }
-    
-    // Parse response
-    const data = await response.json();
-    
-    // Check for expected data structure
-    if (!data.access_token) {
-      throw new Error('Invalid response from server');
-    }
-    
-    // If the server doesn't return user info, we'll fetch it
-    if (!data.user && data.access_token) {
-      try {
-        // Set the token temporarily to fetch user data
-        localStorage.setItem('authToken', data.access_token);
-        const userData = await getUserProfile();
-        // Combine the token and user data
-        return {
-          ...data,
-          user: userData
-        };
-      } catch (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        // Return just the token info if profile fetch fails
-        return data;
-      }
-    }
-    
     return data;
   } catch (error) {
-    console.error('Login API error:', error);
+    console.error('Login failed:', error);
     throw error;
   }
 };
@@ -146,19 +95,13 @@ export const registerUser = async (userData) => {
     email: userData.email,
     password: userData.password,
     phone_number: userData.phone_number || '',
+    date_of_birth: userData.date_of_birth || null,
   };
   
-  if (userData.date_of_birth) {
-    formattedData.date_of_birth = userData.date_of_birth;
-  }
-  
-  const response = await fetchApi('/auth/register', {
+  return fetchApi('/auth/register', {
     method: 'POST',
     body: JSON.stringify(formattedData),
   });
-  
-  console.log('Registration response:', response);
-  return response;
 };
 
 export const requestPasswordReset = async (email) => {
@@ -175,11 +118,16 @@ export const resetPassword = async (token, newPassword) => {
   });
 };
 
+export const refreshAuthToken = async (refreshToken) => {
+  return fetchApi('/auth/refresh-token', {
+    method: 'POST',
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+};
+
 // User profile functions
 export const getUserProfile = async () => {
-  return fetchApi('/users/profile', {
-    method: 'GET',
-  });
+  return fetchApi('/users/profile');
 };
 
 export const updateUserProfile = async (userData) => {
@@ -203,36 +151,17 @@ export const changePassword = async (oldPassword, newPassword) => {
   });
 };
 
-// Dashboard and summary functions
-export const getDashboardSummary = async () => {
-  return fetchApi('/assets/summary', {
-    method: 'GET',
-  });
-};
-
-// Asset functions
+// Asset/Investment functions
 export const getAssets = async () => {
-  return fetchApi('/assets', {
-    method: 'GET',
-  });
+  return fetchApi('/assets');
 };
 
 export const getAssetById = async (assetId) => {
-  return fetchApi(`/assets/${assetId}`, {
-    method: 'GET',
-  });
-};
-
-export const getAssetHistory = async (assetId) => {
-  return fetchApi(`/assets/${assetId}/history`, {
-    method: 'GET',
-  });
+  return fetchApi(`/assets/${assetId}`);
 };
 
 export const getAssetsByType = async (assetType) => {
-  return fetchApi(`/assets/types/${assetType}`, {
-    method: 'GET',
-  });
+  return fetchApi(`/assets/types/${assetType}`);
 };
 
 export const createAsset = async (assetData) => {
@@ -249,7 +178,7 @@ export const updateAsset = async (assetId, assetData) => {
   });
 };
 
-export const updateAssetValue = async (assetId, value, notes) => {
+export const updateAssetValue = async (assetId, value, notes = '') => {
   return fetchApi(`/assets/${assetId}/value`, {
     method: 'PATCH',
     body: JSON.stringify({ value, notes }),
@@ -262,31 +191,35 @@ export const deleteAsset = async (assetId) => {
   });
 };
 
+export const getAssetHistory = async (assetId) => {
+  return fetchApi(`/assets/${assetId}/history`);
+};
+
+// Portfolio summary
+export const getPortfolioSummary = async () => {
+  return fetchApi('/assets/summary');
+};
+
 // Document functions
 export const getDocuments = async () => {
-  return fetchApi('/documents', {
-    method: 'GET',
-  });
+  return fetchApi('/documents');
 };
 
 export const getDocumentById = async (documentId) => {
-  return fetchApi(`/documents/${documentId}`, {
-    method: 'GET',
-  });
+  return fetchApi(`/documents/${documentId}`);
 };
 
 export const uploadDocument = async (formData) => {
-  // Note: This function needs special handling for file uploads
-  const url = `${API_BASE_URL}/documents`;
-  
-  const headers = {};
+  // Special handling for file uploads - don't use JSON content type
   const token = localStorage.getItem('authToken');
+  const headers = {};
+  
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE_URL}/documents`, {
       method: 'POST',
       headers,
       body: formData, // FormData for file upload
@@ -326,15 +259,11 @@ export const updateDocumentNomineeAccess = async (documentId, nomineeIds) => {
 
 // Nominee functions
 export const getNominees = async () => {
-  return fetchApi('/nominees', {
-    method: 'GET',
-  });
+  return fetchApi('/nominees');
 };
 
 export const getNomineeById = async (nomineeId) => {
-  return fetchApi(`/nominees/${nomineeId}`, {
-    method: 'GET',
-  });
+  return fetchApi(`/nominees/${nomineeId}`);
 };
 
 export const createNominee = async (nomineeData) => {
@@ -364,16 +293,12 @@ export const sendNomineeInvitation = async (nomineeId) => {
 };
 
 export const getNomineeAccessLogs = async () => {
-  return fetchApi('/nominees/access-log', {
-    method: 'GET',
-  });
+  return fetchApi('/nominees/access-log');
 };
 
 // Alert functions
 export const getAlerts = async (includeRead = false) => {
-  return fetchApi(`/alerts?include_read=${includeRead}`, {
-    method: 'GET',
-  });
+  return fetchApi(`/alerts?include_read=${includeRead}`);
 };
 
 export const markAlertAsRead = async (alertId) => {
@@ -382,13 +307,26 @@ export const markAlertAsRead = async (alertId) => {
   });
 };
 
-// Export all functions as a default object
+// While the backend doesn't have this endpoint, we'll assume it will
+export const dismissAlert = async (alertId) => {
+  return fetchApi(`/alerts/${alertId}`, {
+    method: 'DELETE',
+  });
+};
+
+// Dashboard data
+export const getDashboardSummary = async () => {
+  return getPortfolioSummary(); // Dashboard summary is the same as portfolio summary
+};
+
+// Export all functions
 export default {
   // Auth
   loginUser,
   registerUser,
   requestPasswordReset,
   resetPassword,
+  refreshAuthToken,
   
   // User
   getUserProfile,
@@ -396,18 +334,16 @@ export default {
   updateUserSettings,
   changePassword,
   
-  // Dashboard
-  getDashboardSummary,
-  
-  // Assets
+  // Assets/Investments
   getAssets,
   getAssetById,
-  getAssetHistory,
   getAssetsByType,
   createAsset,
   updateAsset,
   updateAssetValue,
   deleteAsset,
+  getAssetHistory,
+  getPortfolioSummary,
   
   // Documents
   getDocuments,
@@ -428,5 +364,9 @@ export default {
   
   // Alerts
   getAlerts,
-  markAlertAsRead
+  markAlertAsRead,
+  dismissAlert,
+  
+  // Dashboard
+  getDashboardSummary,
 };

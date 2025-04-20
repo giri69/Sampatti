@@ -1,8 +1,8 @@
-// The fixed version of AuthContext.jsx
+// src/context/AuthContext.jsx
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { getUserProfile } from '../utils/api';
+import { getUserProfile, refreshAuthToken as apiRefreshToken } from '../utils/api';
 
-// Create the auth context with default values
+// Create auth context with default values
 const AuthContext = createContext({
   currentUser: null,
   isAuthenticated: false,
@@ -24,36 +24,26 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
 
-  // Memoize the refresh token function with useCallback
+  // Refresh token function
   const refreshAuthToken = useCallback(async () => {
     const refreshToken = localStorage.getItem('refreshToken');
     
     if (!refreshToken) {
-      logout();
-      setError('No refresh token available. Please log in again.');
+      console.log('No refresh token available');
       return false;
     }
     
     try {
       // Call API to refresh the token
-      const response = await fetch('/api/v1/auth/refresh-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to refresh token');
-      }
-      
-      const data = await response.json();
+      const data = await apiRefreshToken(refreshToken);
       
       // Update the auth token
-      localStorage.setItem('authToken', data.access_token);
+      if (data && data.access_token) {
+        localStorage.setItem('authToken', data.access_token);
+        return true;
+      }
       
-      return true;
+      return false;
     } catch (error) {
       console.error('Token refresh error:', error);
       logout();
@@ -62,9 +52,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Check if user is logged in when the app loads
+  // Check authentication status on app load
   useEffect(() => {
-    const checkLoginStatus = async () => {
+    const checkAuthStatus = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
@@ -74,41 +64,51 @@ export const AuthProvider = ({ children }) => {
           return;
         }
         
-        // Attempt to get user profile with stored token
-        const userData = await getUserProfile();
-        
-        if (userData) {
-          setCurrentUser(userData);
-          setIsAuthenticated(true);
-        } else {
-          // If no user data returned, attempt to refresh token
-          const refreshSuccess = await refreshAuthToken();
+        // Try to get user profile with the token
+        try {
+          const userData = await getUserProfile();
           
-          if (refreshSuccess) {
-            // Try getting user data again with new token
-            const refreshedUserData = await getUserProfile();
-            setCurrentUser(refreshedUserData);
+          if (userData) {
+            setCurrentUser(userData);
             setIsAuthenticated(true);
+          }
+        } catch (profileError) {
+          // If token is invalid, try refreshing
+          if (profileError.status === 401) {
+            const refreshed = await refreshAuthToken();
+            
+            if (refreshed) {
+              // Try getting user profile again
+              try {
+                const refreshedUserData = await getUserProfile();
+                setCurrentUser(refreshedUserData);
+                setIsAuthenticated(true);
+              } catch (secondError) {
+                // If still fails, log out
+                logout();
+              }
+            } else {
+              // If refresh fails, log out
+              logout();
+            }
           } else {
+            // For other errors, log out
             logout();
           }
         }
       } catch (error) {
-        console.error('Authentication error:', error);
-        // If token is invalid or expired, log out
+        console.error('Authentication check error:', error);
         logout();
-        setError('Session expired. Please log in again.');
       } finally {
         setLoading(false);
       }
     };
 
-    checkLoginStatus();
+    checkAuthStatus();
   }, [refreshAuthToken]);
 
-  // Login function - to be called after successful authentication
+  // Login function
   const login = (token, refreshToken, userData) => {
-    // Store tokens securely
     localStorage.setItem('authToken', token);
     if (refreshToken) {
       localStorage.setItem('refreshToken', refreshToken);
@@ -122,12 +122,10 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function
   const logout = () => {
-    // Clear all auth-related data from localStorage
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('isLoggedIn');
     
-    // Reset auth state
     setCurrentUser(null);
     setIsAuthenticated(false);
   };
@@ -140,12 +138,12 @@ export const AuthProvider = ({ children }) => {
     }));
   };
 
-  // Clear any auth errors
+  // Clear auth errors
   const clearError = () => {
     setError(null);
   };
 
-  // Provide auth context values
+  // Context value
   const value = {
     currentUser,
     isAuthenticated,
