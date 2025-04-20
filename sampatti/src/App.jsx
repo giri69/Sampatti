@@ -74,7 +74,6 @@ function App() {
           <Route path="/investments/:id/edit" element={<EditAsset />} />
           
           {/* Other protected routes */}
-          <Route path="/documents" element={<Documents />} />
           <Route path="/nominees" element={<Nominees />} />
           {/*<Route path="/alerts" element={<Alerts />} />*/}
           <Route path="/settings" element={<Settings />} />

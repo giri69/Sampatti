@@ -100,19 +100,6 @@ const MainLayout = () => {
               </li>
               <li className="mb-2">
                 <NavLink 
-                  to="/documents" 
-                  className={({isActive}) => 
-                    isActive 
-                      ? "flex items-center p-3 rounded-lg bg-indigo-600 text-white" 
-                      : "flex items-center p-3 rounded-lg hover:bg-gray-700 text-gray-300"
-                  }
-                >
-                  <FileText size={20} className="mr-3" />
-                  <span>Documents</span>
-                </NavLink>
-              </li>
-              <li className="mb-2">
-                <NavLink 
                   to="/nominees" 
                   className={({isActive}) => 
                     isActive 
@@ -180,19 +167,6 @@ const MainLayout = () => {
                   >
                     <PieChart size={20} className="mr-3" />
                     <span>Investments</span>
-                  </NavLink>
-                </li>
-                <li className="mb-2">
-                  <NavLink 
-                    to="/documents" 
-                    className={({isActive}) => 
-                      isActive 
-                        ? "flex items-center p-4 rounded-lg bg-indigo-600 text-white" 
-                        : "flex items-center p-4 rounded-lg hover:bg-gray-700 text-gray-300"
-                    }
-                  >
-                    <FileText size={20} className="mr-3" />
-                    <span>Documents</span>
                   </NavLink>
                 </li>
                 <li className="mb-2">
