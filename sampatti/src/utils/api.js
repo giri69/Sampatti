@@ -1,8 +1,78 @@
-// src/utils/api.js
+// src/utils/api.js - Improved version with better error handling and token refresh
 const API_BASE_URL = '/api/v1';
 
-// Generic API fetching function with authentication and error handling
-const fetchApi = async (endpoint, options = {}) => {
+// Create a reusable function to handle API response errors
+const handleApiResponse = async (response) => {
+  // Handle non-OK responses
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type');
+    let errorMessage;
+    let errorDetails = { status: response.status };
+    
+    // Try to parse error as JSON if possible
+    try {
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || `HTTP error ${response.status}`;
+        errorDetails = { ...errorDetails, ...errorData };
+      } else {
+        errorMessage = await response.text() || `HTTP error ${response.status}`;
+      }
+    } catch (parseError) {
+      errorMessage = `HTTP error ${response.status}`;
+    }
+    
+    // Create rich error object
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    error.details = errorDetails;
+    throw error;
+  }
+  
+  // Check if response is empty or not JSON
+  const contentType = response.headers.get('content-type');
+  if (response.status === 204 || !contentType) {
+    return null;
+  }
+  
+  // Parse response based on content type
+  if (contentType && contentType.includes('application/json')) {
+    return await response.json();
+  } else {
+    return await response.text();
+  }
+};
+
+// Add a token refresh mechanism
+let isRefreshing = false;
+let refreshPromise = null;
+const waitingRequests = [];
+
+const refreshAuthToken = async () => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  
+  const data = await handleApiResponse(response);
+  if (data && data.access_token) {
+    localStorage.setItem('authToken', data.access_token);
+    return data.access_token;
+  }
+  
+  throw new Error('Failed to refresh token');
+};
+
+// Enhanced fetchApi with automatic token refresh
+const fetchApi = async (endpoint, options = {}, retryCount = 0) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
   const headers = {
@@ -24,66 +94,82 @@ const fetchApi = async (endpoint, options = {}) => {
   try {
     const response = await fetch(url, config);
     
-    // Handle non-OK responses
-    if (!response.ok) {
-      const contentType = response.headers.get('content-type');
-      let errorMessage;
-      let errorDetails = { status: response.status };
-      
-      // Try to parse error as JSON if possible
-      try {
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || `HTTP error ${response.status}`;
-          errorDetails = { ...errorDetails, ...errorData };
-        } else {
-          errorMessage = await response.text() || `HTTP error ${response.status}`;
-        }
-      } catch (parseError) {
-        errorMessage = `HTTP error ${response.status}`;
+    // Handle token expiration
+    if (response.status === 401 && retryCount === 0) {
+      // If a token refresh is already in progress, wait for it
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          waitingRequests.push({ resolve, reject, endpoint, options });
+        });
       }
       
-      // Create rich error object
-      const error = new Error(errorMessage);
-      error.status = response.status;
-      error.details = errorDetails;
-      throw error;
+      try {
+        // Set refreshing flag and start refresh
+        isRefreshing = true;
+        refreshPromise = refreshAuthToken();
+        
+        // Wait for token refresh
+        await refreshPromise;
+        
+        // Retry the original request with new token
+        return fetchApi(endpoint, options, retryCount + 1);
+      } catch (refreshError) {
+        // If refresh fails, clear authentication and throw error
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('isLoggedIn');
+        
+        // Propagate the error to all waiting requests
+        waitingRequests.forEach(req => req.reject(refreshError));
+        waitingRequests.length = 0;
+        
+        throw refreshError;
+      } finally {
+        isRefreshing = false;
+        refreshPromise = null;
+        
+        // Process any waiting requests
+        const currentToken = localStorage.getItem('authToken');
+        if (currentToken) {
+          waitingRequests.forEach(req => {
+            req.resolve(fetchApi(req.endpoint, req.options, retryCount + 1));
+          });
+          waitingRequests.length = 0;
+        }
+      }
     }
     
-    // Check if response is empty
-    const contentType = response.headers.get('content-type');
-    if (response.status === 204 || !contentType) {
-      return null;
-    }
-    
-    // Parse response based on content type
-    if (contentType && contentType.includes('application/json')) {
-      return await response.json();
-    } else {
-      return await response.text();
-    }
+    return await handleApiResponse(response);
   } catch (error) {
     // Add status code for network errors
     if (!error.status) {
       error.status = 0;
-      error.message = error.message || 'Network error. Please check your connection.';
+      error.message = error.message || 'Network error. Please check your internet connection.';
     }
     
     throw error;
   }
 };
 
-// Auth API functions
+// Auth API functions with timeout handling
 export const loginUser = async (email, password) => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
     const data = await fetchApi('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
     return data;
   } catch (error) {
     console.error('Login failed:', error);
+    if (error.name === 'AbortError') {
+      throw new Error('Login request timed out. Please try again.');
+    }
     throw error;
   }
 };
@@ -103,6 +189,25 @@ export const registerUser = async (userData) => {
   });
 };
 
+export const refreshTokenApi = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+    
+    const data = await fetchApi('/auth/refresh-token', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    
+    return data;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    throw error;
+  }
+};
+
 export const requestPasswordReset = async (email) => {
   return fetchApi('/auth/forgot-password', {
     method: 'POST',
@@ -117,16 +222,22 @@ export const resetPassword = async (token, newPassword) => {
   });
 };
 
-export const refreshAuthToken = async (refreshToken) => {
-  return fetchApi('/auth/refresh-token', {
-    method: 'POST',
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-};
-
-// User profile functions
+// User profile functions with built-in error recovery
 export const getUserProfile = async () => {
-  return fetchApi('/users/profile');
+  try {
+    return await fetchApi('/users/profile');
+  } catch (error) {
+    // If unauthorized, try to refresh token once automatically
+    if (error.status === 401) {
+      try {
+        await refreshTokenApi();
+        return await fetchApi('/users/profile');
+      } catch (refreshError) {
+        throw refreshError;
+      }
+    }
+    throw error;
+  }
 };
 
 export const updateUserProfile = async (userData) => {
@@ -144,7 +255,7 @@ export const updateUserSettings = async (settings) => {
 };
 
 export const changePassword = async (oldPassword, newPassword) => {
-  return fetchApi('/auth/change-password', {
+  return fetchApi('/users/change-password', {
     method: 'POST',
     body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
   });
@@ -152,7 +263,14 @@ export const changePassword = async (oldPassword, newPassword) => {
 
 // Asset/Investment functions
 export const getAssets = async () => {
-  return fetchApi('/assets');
+  try {
+    const response = await fetchApi('/assets');
+    return response || [];
+  } catch (error) {
+    console.error('Error fetching assets:', error);
+    // Return empty array instead of throwing to prevent UI breakage
+    return [];
+  }
 };
 
 export const getAssetById = async (assetId) => {
@@ -191,17 +309,44 @@ export const deleteAsset = async (assetId) => {
 };
 
 export const getAssetHistory = async (assetId) => {
-  return fetchApi(`/assets/${assetId}/history`);
+  try {
+    const response = await fetchApi(`/assets/${assetId}/history`);
+    return response || []; 
+  } catch (error) {
+    console.error(`Error fetching history for asset ${assetId}:`, error);
+    return [];
+  }
 };
 
-// Portfolio summary
+// Portfolio summary with error handling
 export const getPortfolioSummary = async () => {
-  return fetchApi('/assets/summary');
+  try {
+    return await fetchApi('/assets/summary');
+  } catch (error) {
+    console.error('Error fetching portfolio summary:', error);
+    // Return default empty data structure to prevent UI breakage
+    return {
+      total_value: 0,
+      total_investment: 0,
+      assets_by_type: {},
+      asset_count: 0,
+      average_return: 0,
+      average_risk_score: 0,
+      upcoming_maturities: [],
+      last_updated: new Date().toISOString()
+    };
+  }
 };
 
 // Document functions
 export const getDocuments = async () => {
-  return fetchApi('/documents');
+  try {
+    const response = await fetchApi('/documents');
+    return response || [];
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    return [];
+  }
 };
 
 export const getDocumentById = async (documentId) => {
@@ -218,20 +363,23 @@ export const uploadDocument = async (formData) => {
   }
   
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for file uploads
+    
     const response = await fetch(`${API_BASE_URL}/documents`, {
       method: 'POST',
       headers,
       body: formData, // FormData for file upload
+      signal: controller.signal
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP error ${response.status}`);
-    }
-    
-    return await response.json();
+    clearTimeout(timeoutId);
+    return await handleApiResponse(response);
   } catch (error) {
     console.error('Document upload failed:', error);
+    if (error.name === 'AbortError') {
+      throw new Error('Upload timed out. The file may be too large or your connection is slow.');
+    }
     throw error;
   }
 };
@@ -256,9 +404,15 @@ export const updateDocumentNomineeAccess = async (documentId, nomineeIds) => {
   });
 };
 
-// Nominee functions
+// Nominee functions with better error handling
 export const getNominees = async () => {
-  return fetchApi('/nominees');
+  try {
+    const response = await fetchApi('/nominees');
+    return response || [];
+  } catch (error) {
+    console.error('Error fetching nominees:', error);
+    return [];
+  }
 };
 
 export const getNomineeById = async (nomineeId) => {
@@ -286,18 +440,32 @@ export const deleteNominee = async (nomineeId) => {
 };
 
 export const sendNomineeInvitation = async (nomineeId) => {
-  return fetchApi(`/nominees/${nomineeId}/send-invitation`, {
+  const response = await fetchApi(`/nominees/${nomineeId}/send-invitation`, {
     method: 'POST',
   });
+  
+  return response && response.code ? response.code : 'CODE-NOT-FOUND';
 };
 
 export const getNomineeAccessLogs = async () => {
-  return fetchApi('/nominees/access-log');
+  try {
+    const response = await fetchApi('/nominees/access-log');
+    return response || [];
+  } catch (error) {
+    console.error('Error fetching nominee access logs:', error);
+    return [];
+  }
 };
 
 // Alert functions
 export const getAlerts = async (includeRead = false) => {
-  return fetchApi(`/alerts?include_read=${includeRead}`);
+  try {
+    const response = await fetchApi(`/alerts?include_read=${includeRead}`);
+    return response || [];
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    return [];
+  }
 };
 
 export const markAlertAsRead = async (alertId) => {
@@ -325,7 +493,7 @@ export default {
   registerUser,
   requestPasswordReset,
   resetPassword,
-  refreshAuthToken,
+  refreshTokenApi,
   
   // User
   getUserProfile,

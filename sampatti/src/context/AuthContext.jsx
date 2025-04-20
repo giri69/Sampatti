@@ -1,6 +1,6 @@
-// src/context/AuthContext.jsx
+// src/context/AuthContext.jsx - Improved version
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { getUserProfile, refreshAuthToken as apiRefreshToken } from '../utils/api';
+import { getUserProfile, refreshTokenApi } from '../utils/api';
 
 // Create auth context with default values
 const AuthContext = createContext({
@@ -23,19 +23,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
+  const [refreshTimer, setRefreshTimer] = useState(null);
 
   // Refresh token function
-  const refreshAuthToken = useCallback(async () => {
+  const refreshAuthToken = useCallback(async (silent = false) => {
     const refreshToken = localStorage.getItem('refreshToken');
     
     if (!refreshToken) {
-      console.log('No refresh token available');
+      if (!silent) console.log('No refresh token available');
       return false;
     }
     
     try {
       // Call API to refresh the token
-      const data = await apiRefreshToken(refreshToken);
+      const data = await refreshTokenApi();
       
       // Update the auth token
       if (data && data.access_token) {
@@ -45,17 +46,45 @@ export const AuthProvider = ({ children }) => {
       
       return false;
     } catch (error) {
-      console.error('Token refresh error:', error);
-      logout();
-      setError('Session expired. Please log in again.');
+      if (!silent) {
+        console.error('Token refresh error:', error);
+        logout();
+        setError('Session expired. Please log in again.');
+      }
       return false;
     }
   }, []);
 
+  // Setup token refresh interval
+  useEffect(() => {
+    // Clean up any existing timer
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+    }
+    
+    // Only set up refresh timer if authenticated
+    if (isAuthenticated) {
+      // Refresh token every 14 minutes (tokens expire in 15 minutes)
+      const timer = setInterval(() => {
+        refreshAuthToken(true); // Silent refresh
+      }, 14 * 60 * 1000);
+      
+      setRefreshTimer(timer);
+    }
+    
+    return () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+    };
+  }, [isAuthenticated, refreshAuthToken]);
+
   // Check authentication status on app load
   useEffect(() => {
+    let mounted = true;
+    
     const checkAuthStatus = async () => {
       try {
+        if (!mounted) return;
+        
         setLoading(true);
         const token = localStorage.getItem('authToken');
         
@@ -69,7 +98,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const userData = await getUserProfile();
           
-          if (userData) {
+          if (userData && mounted) {
             setCurrentUser(userData);
             setIsAuthenticated(true);
           }
@@ -77,39 +106,45 @@ export const AuthProvider = ({ children }) => {
           console.error("Profile fetch error:", profileError);
           
           // If token is invalid, try refreshing
-          if (profileError.status === 401) {
+          if (profileError.status === 401 && mounted) {
             const refreshed = await refreshAuthToken();
             
-            if (refreshed) {
+            if (refreshed && mounted) {
               // Try getting user profile again with new token
               try {
                 const refreshedUserData = await getUserProfile();
-                setCurrentUser(refreshedUserData);
-                setIsAuthenticated(true);
+                if (mounted) {
+                  setCurrentUser(refreshedUserData);
+                  setIsAuthenticated(true);
+                }
               } catch (secondError) {
                 console.error("Second profile fetch error:", secondError);
-                logout();
+                if (mounted) logout();
               }
-            } else {
+            } else if (mounted) {
               logout();
             }
-          } else {
+          } else if (mounted) {
             logout();
           }
         }
       } catch (error) {
         console.error('Authentication check error:', error);
-        logout();
+        if (mounted) logout();
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     checkAuthStatus();
+    
+    return () => {
+      mounted = false;
+    };
   }, [refreshAuthToken]);
 
   // Login function
-  const login = (token, refreshToken, userData) => {
+  const login = useCallback((token, refreshToken, userData) => {
     localStorage.setItem('authToken', token);
     if (refreshToken) {
       localStorage.setItem('refreshToken', refreshToken);
@@ -119,32 +154,38 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(userData);
     setIsAuthenticated(true);
     setError(null);
-  };
+  }, []);
 
   // Logout function
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('isLoggedIn');
     
+    // Clear any refresh timers
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      setRefreshTimer(null);
+    }
+    
     setCurrentUser(null);
     setIsAuthenticated(false);
-  };
+  }, [refreshTimer]);
 
   // Update user data
-  const updateUser = (userData) => {
+  const updateUser = useCallback((userData) => {
     setCurrentUser(prev => ({
       ...prev,
       ...userData
     }));
-  };
+  }, []);
 
   // Clear auth errors
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setError(null);
-  };
+  }, []);
 
-  // Context value
+  // Context value with memoized callbacks
   const value = {
     currentUser,
     isAuthenticated,

@@ -1,12 +1,13 @@
-// src/pages/Nominees.jsx
+// src/pages/Nominees.jsx - Enhanced with Connected Assets
 import { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Mail, Phone, Shield, Eye, Edit, Trash2, 
-  ChevronRight, Search, AlertTriangle, Clock, Check, Send
+  ChevronRight, Search, AlertTriangle, Clock, Check, Send,
+  FileText, PieChart, ExternalLink
 } from 'lucide-react';
 import { 
   getNominees, createNominee, updateNominee, deleteNominee, 
-  sendNomineeInvitation, getNomineeAccessLogs 
+  sendNomineeInvitation, getNomineeAccessLogs, getAssets
 } from '../utils/api';
 
 // Import common components
@@ -265,11 +266,32 @@ const NomineeFormModal = ({ isOpen, onClose, onSubmit, editingNominee = null }) 
   );
 };
 
-// Nominee Detail Modal
-const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSendInvite }) => {
+// Nominee Detail Modal with Connected Assets
+const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSendInvite, assets = [] }) => {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [activeTab, setActiveTab] = useState('details');
+  
+  // Filter assets based on nominee's access level
+  const accessibleAssets = assets.filter(asset => {
+    if (nominee?.access_level === 'Full') {
+      return true; // Full access can see all assets
+    } else if (nominee?.access_level === 'Limited') {
+      // Limited access can see basic assets but not sensitive ones
+      return !asset.tags?.includes('Sensitive');
+    }
+    return false; // Documents Only can't see assets
+  });
+  
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
   
   // Handle sending invitation
   const handleSendInvite = async () => {
@@ -305,7 +327,7 @@ const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSend
   
   return (
     <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-lg w-full max-w-md border border-gray-700">
+      <div className="bg-gray-800 rounded-lg w-full max-w-4xl border border-gray-700">
         <div className="p-4 border-b border-gray-700 flex justify-between items-center">
           <h3 className="text-lg font-semibold text-white flex items-center">
             <Users size={20} className="mr-2 text-blue-400" />
@@ -316,139 +338,327 @@ const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSend
           </button>
         </div>
         
-        <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <StatusBadge status={nominee.status} />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={<Edit size={16} />}
-                onClick={() => {
-                  onClose();
-                  onEdit(nominee);
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="danger"
-                icon={<Trash2 size={16} />}
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to delete this nominee? This action cannot be undone.')) {
-                    onDelete(nominee.id);
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+          {/* Left sidebar with nominee info */}
+          <div className="p-6 border-r border-gray-700">
+            <div className="mb-6 flex items-center justify-between">
+              <StatusBadge status={nominee.status} />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Edit size={16} />}
+                  onClick={() => {
                     onClose();
-                  }
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-          
-          <h2 className="text-xl font-bold text-white mb-2">{nominee.name}</h2>
-          <div className="text-blue-400 mb-4">{nominee.relationship}</div>
-          
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-700/30 rounded-lg">
-              <div className="flex items-center mb-3">
-                <Mail size={18} className="text-blue-400 mr-2" />
-                <h4 className="text-white font-medium">Contact Information</h4>
-              </div>
-              <div className="grid grid-cols-1 gap-y-2">
-                <div>
-                  <p className="text-gray-400 text-sm">Email</p>
-                  <p className="text-white">{nominee.email}</p>
-                </div>
-                {nominee.phone_number && (
-                  <div>
-                    <p className="text-gray-400 text-sm">Phone</p>
-                    <p className="text-white">{nominee.phone_number}</p>
-                  </div>
-                )}
+                    onEdit(nominee);
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  icon={<Trash2 size={16} />}
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete this nominee? This action cannot be undone.')) {
+                      onDelete(nominee.id);
+                      onClose();
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
             </div>
             
-            <div className="p-4 bg-gray-700/30 rounded-lg">
-              <div className="flex items-center mb-3">
-                <Shield size={18} className="text-green-400 mr-2" />
-                <h4 className="text-white font-medium">Access Details</h4>
+            <h2 className="text-xl font-bold text-white mb-2">{nominee.name}</h2>
+            <div className="text-blue-400 mb-4">{nominee.relationship}</div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-700/30 rounded-lg">
+                <div className="flex items-center mb-3">
+                  <Mail size={18} className="text-blue-400 mr-2" />
+                  <h4 className="text-white font-medium">Contact Information</h4>
+                </div>
+                <div className="grid grid-cols-1 gap-y-2">
+                  <div>
+                    <p className="text-gray-400 text-sm">Email</p>
+                    <p className="text-white">{nominee.email}</p>
+                  </div>
+                  {nominee.phone_number && (
+                    <div>
+                      <p className="text-gray-400 text-sm">Phone</p>
+                      <p className="text-white">{nominee.phone_number}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-1 gap-y-2">
-                <div>
-                  <p className="text-gray-400 text-sm">Access Level</p>
-                  <div className="flex items-center">
-                    <AccessLevelBadge level={nominee.access_level} />
-                    {nominee.access_level === 'Full' && (
-                      <span className="text-gray-400 text-xs ml-2">(All data accessible)</span>
-                    )}
+              
+              <div className="p-4 bg-gray-700/30 rounded-lg">
+                <div className="flex items-center mb-3">
+                  <Shield size={18} className="text-green-400 mr-2" />
+                  <h4 className="text-white font-medium">Access Details</h4>
+                </div>
+                <div className="grid grid-cols-1 gap-y-2">
+                  <div>
+                    <p className="text-gray-400 text-sm">Access Level</p>
+                    <div className="flex items-center">
+                      <AccessLevelBadge level={nominee.access_level} />
+                      {nominee.access_level === 'Full' && (
+                        <span className="text-gray-400 text-xs ml-2">(All data accessible)</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Status</p>
+                    <p className={
+                      nominee.status === 'Active' ? 'text-green-400' : 
+                      nominee.status === 'Pending' ? 'text-yellow-400' : 
+                      'text-red-400'
+                    }>
+                      {nominee.status}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Last Access</p>
+                    <p className="text-white">{formatDate(nominee.last_access_date)}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Status</p>
-                  <p className={
-                    nominee.status === 'Active' ? 'text-green-400' : 
-                    nominee.status === 'Pending' ? 'text-yellow-400' : 
-                    'text-red-400'
-                  }>
-                    {nominee.status}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Last Access</p>
-                  <p className="text-white">{formatDate(nominee.last_access_date)}</p>
-                </div>
               </div>
+              
+              {/* Invite button for pending nominees */}
+              {nominee.status === 'Pending' && (
+                <div className="mt-4">
+                  <Button
+                    className="w-full"
+                    variant="primary"
+                    icon={<Send size={18} />}
+                    onClick={handleSendInvite}
+                    isLoading={isSending}
+                    disabled={isSending}
+                  >
+                    Send Invitation
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           
-          {/* Invite Code Display */}
-          {inviteCode && (
-            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <div className="flex items-start mb-2">
-                <Check size={18} className="text-green-400 mr-2 mt-0.5" />
-                <div>
-                  <h4 className="text-white font-medium">Invitation Sent!</h4>
-                  <p className="text-gray-300 text-sm mb-2">
-                    Share this emergency access code with {nominee.name}:
-                  </p>
-                  <div className="bg-blue-500/20 p-2 rounded font-mono text-center text-blue-400 text-lg">
-                    {inviteCode}
-                  </div>
-                  <p className="text-gray-400 text-xs mt-2">
-                    Note: Store this code securely. It will not be shown again.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Error message */}
-          {sendError && (
-            <div className="mt-4">
-              <ErrorState message={sendError} />
-            </div>
-          )}
-          
-          <div className="mt-6 pt-4 border-t border-gray-700 flex justify-between">
-            {nominee.status === 'Pending' && (
-              <Button
-                variant="primary"
-                icon={<Send size={18} />}
-                onClick={handleSendInvite}
-                isLoading={isSending}
-                disabled={isSending}
+          {/* Right side tabs */}
+          <div className="col-span-2">
+            {/* Tab navigation */}
+            <div className="flex border-b border-gray-700">
+              <button 
+                className={`px-6 py-3 text-sm font-medium ${activeTab === 'details' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400 hover:text-white'}`}
+                onClick={() => setActiveTab('details')}
               >
-                Send Invitation
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              onClick={onClose}
-            >
-              Close
-            </Button>
+                Details
+              </button>
+              <button 
+                className={`px-6 py-3 text-sm font-medium ${activeTab === 'assets' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400 hover:text-white'}`}
+                onClick={() => setActiveTab('assets')}
+              >
+                Accessible Assets {accessibleAssets.length > 0 ? `(${accessibleAssets.length})` : ''}
+              </button>
+            </div>
+            
+            {/* Tab content */}
+            <div className="p-6">
+              {/* Details tab */}
+              {activeTab === 'details' && (
+                <div>
+                  {/* Invite Code Display */}
+                  {inviteCode && (
+                    <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <div className="flex items-start">
+                        <Check size={18} className="text-green-400 mr-2 mt-0.5" />
+                        <div>
+                          <h4 className="text-white font-medium">Invitation Sent!</h4>
+                          <p className="text-gray-300 text-sm mb-2">
+                            Share this emergency access code with {nominee.name}:
+                          </p>
+                          <div className="bg-blue-500/20 p-2 rounded font-mono text-center text-blue-400 text-lg">
+                            {inviteCode}
+                          </div>
+                          <p className="text-gray-400 text-xs mt-2">
+                            Note: Store this code securely. It will not be shown again.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Error message */}
+                  {sendError && (
+                    <div className="mb-6">
+                      <ErrorState message={sendError} />
+                    </div>
+                  )}
+                  
+                  {/* Access explanation */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-white mb-3">Access Permissions</h3>
+                    <div className="p-4 bg-gray-700/30 rounded-lg">
+                      <p className="text-gray-300 mb-4">
+                        This nominee has <AccessLevelBadge level={nominee.access_level} /> to your data, which means:
+                      </p>
+                      
+                      <div className="space-y-3">
+                        {nominee.access_level === 'Full' && (
+                          <>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can view all investment details and documents</p>
+                            </div>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can see your portfolio summary and overall value</p>
+                            </div>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can access all documents you've uploaded</p>
+                            </div>
+                          </>
+                        )}
+                        
+                        {nominee.access_level === 'Limited' && (
+                          <>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can view basic investment information (excluding sensitive data)</p>
+                            </div>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can see a summary of your portfolio</p>
+                            </div>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can access documents marked as accessible to nominees</p>
+                            </div>
+                          </>
+                        )}
+                        
+                        {nominee.access_level === 'DocumentsOnly' && (
+                          <>
+                            <div className="flex items-start">
+                              <Check size={16} className="text-green-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Can only access documents marked as accessible to nominees</p>
+                            </div>
+                            <div className="flex items-start">
+                              <AlertTriangle size={16} className="text-yellow-400 mt-0.5 mr-2" />
+                              <p className="text-gray-300">Cannot view any investment details or summary</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Emergency access instructions */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3">Emergency Access Instructions</h3>
+                    <div className="p-4 bg-gray-700/30 rounded-lg">
+                      <p className="text-gray-300 mb-4">
+                        In case of emergency, your nominee should:
+                      </p>
+                      
+                      <ol className="space-y-3 pl-6 list-decimal text-gray-300">
+                        <li>Go to the Sampatti website login page</li>
+                        <li>Click on "Emergency Access" below the login form</li>
+                        <li>Enter their email address: <span className="text-white">{nominee.email}</span></li>
+                        <li>Enter the emergency access code you provided them</li>
+                        <li>Follow the prompts to access your information</li>
+                      </ol>
+                      
+                      <p className="mt-4 text-sm text-gray-400">
+                        Note: All nominee access is logged and you will be notified whenever a nominee accesses your account.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Assets tab */}
+              {activeTab === 'assets' && (
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Assets {nominee.name} Can Access
+                  </h3>
+                  
+                  {nominee.access_level === 'DocumentsOnly' ? (
+                    <div className="p-6 text-center bg-gray-700/30 rounded-lg">
+                      <FileText size={32} className="mx-auto mb-2 text-gray-500" />
+                      <p className="text-white font-medium mb-1">Documents Only Access</p>
+                      <p className="text-gray-400">
+                        This nominee can only access documents and not any investment details.
+                      </p>
+                    </div>
+                  ) : accessibleAssets.length === 0 ? (
+                    <div className="p-6 text-center bg-gray-700/30 rounded-lg">
+                      <PieChart size={32} className="mx-auto mb-2 text-gray-500" />
+                      <p className="text-gray-400">
+                        No investment assets are available to this nominee yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-lg border border-gray-700">
+                      <table className="min-w-full divide-y divide-gray-700">
+                        <thead className="bg-gray-800">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Asset Name
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Type
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Institution
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Current Value
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-gray-800 divide-y divide-gray-700">
+                          {accessibleAssets.map((asset) => (
+                            <tr key={asset.id} className="hover:bg-gray-700">
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
+                                {asset.asset_name}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">
+                                <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400">
+                                  {asset.asset_type}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">
+                                {asset.institution || '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300 text-right">
+                                {formatCurrency(asset.current_value)}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                                <a 
+                                  href={`/investments/${asset.id}`}
+                                  className="text-blue-400 hover:text-blue-300 inline-flex items-center"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink size={16} className="mr-1" />
+                                  View
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -503,8 +713,10 @@ const AccessLogItem = ({ log, nomineeName }) => {
 // Main Nominees component
 const Nominees = () => {
   const [nominees, setNominees] = useState([]);
+  const [assets, setAssets] = useState([]);
   const [accessLogs, setAccessLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -512,7 +724,7 @@ const Nominees = () => {
   const [selectedNominee, setSelectedNominee] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   
-  // Load nominees and access logs on component mount
+  // Load nominees, assets, and access logs on component mount
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -521,20 +733,31 @@ const Nominees = () => {
       try {
         // Load nominees
         const nomineesData = await getNominees();
-        if(!nomineesData || nomineesData.length === 0) {
-        setNominees([]);
-        }
-        else{
+        if (!nomineesData || nomineesData.length === 0) {
+          setNominees([]);
+        } else {
           setNominees(nomineesData);
-        }        
+        }
         
         // Load access logs
         try {
           const logsData = await getNomineeAccessLogs();
-          setAccessLogs(logsData);
+          setAccessLogs(logsData || []);
         } catch (logError) {
           console.error('Failed to load access logs:', logError);
           setAccessLogs([]);
+        }
+        
+        // Load assets for showing accessible assets to nominees
+        try {
+          setIsLoadingAssets(true);
+          const assetsData = await getAssets();
+          setAssets(assetsData || []);
+        } catch (assetsError) {
+          console.error('Failed to load assets:', assetsError);
+          setAssets([]);
+        } finally {
+          setIsLoadingAssets(false);
         }
       } catch (err) {
         console.error('Error loading nominees:', err);
@@ -649,17 +872,6 @@ const Nominees = () => {
     } else {
       return handleCreateNominee(formData);
     }
-  };
-  
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Never';
-    
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
   };
   
   // Get nominee name by ID (for access logs)
@@ -788,6 +1000,7 @@ const Nominees = () => {
       {/* Detail Modal */}
       <NomineeDetailModal
         nominee={selectedNominee}
+        assets={assets}
         isOpen={detailModalOpen}
         onClose={() => {
           setDetailModalOpen(false);

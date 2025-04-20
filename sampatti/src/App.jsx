@@ -17,7 +17,6 @@ const AddAsset = lazy(() => import('./pages/investments/AddAsset'));
 const AssetDetails = lazy(() => import('./pages/investments/AssetDetails'));
 const EditAsset = lazy(() => import('./pages/investments/EditAsset'));
  
-const Documents = lazy(() => import('./pages/Documents'));
 const Nominees = lazy(() => import('./pages/Nominees'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Settings = lazy(() => import('./pages/Settings'));

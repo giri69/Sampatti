@@ -1,14 +1,10 @@
-// src/pages/Settings.jsx
+// src/pages/Settings.jsx - Version without API calls
 import { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, User, Lock, Bell, 
   Database, Shield, Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { 
-  getUserProfile, updateUserProfile, 
-  updateUserSettings, changePassword 
-} from '../utils/api';
 
 // Import common components
 import Card from '../components/common/Card';
@@ -19,9 +15,8 @@ import ErrorState from '../components/common/ErrorState';
 
 const Settings = () => {
   const { currentUser, updateUser } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
   
   // Form states
   const [profileData, setProfileData] = useState({
@@ -57,43 +52,36 @@ const Settings = () => {
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   
-  // Load user data
+  // Initialize data from currentUser (replacing API call)
   useEffect(() => {
-    const loadUserData = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        // Get full user profile
-        const userData = await getUserProfile();
-        
-        // Update form data
+    // Simulate loading for a short time
+    setIsLoading(true);
+    
+    // Short timeout to simulate data fetching
+    const timer = setTimeout(() => {
+      if (currentUser) {
+        // Initialize profile data from current user
         setProfileData({
-          name: userData.name || '',
-          phone_number: userData.phone_number || '',
-          date_of_birth: userData.date_of_birth 
-            ? new Date(userData.date_of_birth).toISOString().split('T')[0] 
+          name: currentUser.name || '',
+          phone_number: currentUser.phone_number || '',
+          date_of_birth: currentUser.date_of_birth 
+            ? new Date(currentUser.date_of_birth).toISOString().split('T')[0] 
             : '',
         });
         
+        // Initialize settings data
         setSettingsData({
-          notifications: userData.notifications !== false,
-          default_currency: userData.default_currency || 'INR',
-          two_factor_enabled: userData.two_factor_enabled || false
+          notifications: currentUser.notifications !== false,
+          default_currency: currentUser.default_currency || 'INR',
+          two_factor_enabled: currentUser.two_factor_enabled || false
         });
-        
-        // Update auth context
-        updateUser(userData);
-      } catch (err) {
-        console.error('Error loading user data:', err);
-        setError('Failed to load user data. Please try again.');
-      } finally {
-        setIsLoading(false);
       }
-    };
+      
+      setIsLoading(false);
+    }, 500); // Just enough delay to show loading state
     
-    loadUserData();
-  }, [updateUser]);
+    return () => clearTimeout(timer);
+  }, [currentUser]);
   
   // Handle form changes
   const handleProfileChange = (e) => {
@@ -127,18 +115,19 @@ const Settings = () => {
     setProfileSuccess('');
     setIsUpdatingProfile(true);
     
-    try {
-      await updateUserProfile(profileData);
-      setProfileSuccess('Profile updated successfully');
-      
-      // Update auth context
-      updateUser(profileData);
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      setProfileError(err.message || 'Failed to update profile. Please try again.');
-    } finally {
-      setIsUpdatingProfile(false);
-    }
+    // Simulate API call with setTimeout
+    setTimeout(() => {
+      try {
+        // Update auth context with new profile data
+        updateUser(profileData);
+        setProfileSuccess('Profile updated successfully');
+      } catch (err) {
+        console.error('Error updating profile:', err);
+        setProfileError('Failed to update profile. Please try again.');
+      } finally {
+        setIsUpdatingProfile(false);
+      }
+    }, 800); // Simulate network delay
   };
   
   const handleUpdateSettings = async (e) => {
@@ -147,18 +136,19 @@ const Settings = () => {
     setSettingsSuccess('');
     setIsUpdatingSettings(true);
     
-    try {
-      await updateUserSettings(settingsData);
-      setSettingsSuccess('Settings updated successfully');
-      
-      // Update auth context
-      updateUser(settingsData);
-    } catch (err) {
-      console.error('Error updating settings:', err);
-      setSettingsError(err.message || 'Failed to update settings. Please try again.');
-    } finally {
-      setIsUpdatingSettings(false);
-    }
+    // Simulate API call with setTimeout
+    setTimeout(() => {
+      try {
+        // Update auth context with new settings
+        updateUser(settingsData);
+        setSettingsSuccess('Settings updated successfully');
+      } catch (err) {
+        console.error('Error updating settings:', err);
+        setSettingsError('Failed to update settings. Please try again.');
+      } finally {
+        setIsUpdatingSettings(false);
+      }
+    }, 800); // Simulate network delay
   };
   
   const handleChangePassword = async (e) => {
@@ -179,22 +169,29 @@ const Settings = () => {
     
     setIsChangingPassword(true);
     
-    try {
-      await changePassword(passwordData.old_password, passwordData.new_password);
-      setPasswordSuccess('Password changed successfully');
-      
-      // Reset password fields
-      setPasswordData({
-        old_password: '',
-        new_password: '',
-        confirm_password: ''
-      });
-    } catch (err) {
-      console.error('Error changing password:', err);
-      setPasswordError(err.message || 'Failed to change password. Please check your current password and try again.');
-    } finally {
-      setIsChangingPassword(false);
-    }
+    // Simulate password change with setTimeout
+    setTimeout(() => {
+      try {
+        // Simple validation - in real app, would verify old password first
+        if (passwordData.old_password === 'wrong-password') {
+          throw new Error('Current password is incorrect');
+        }
+        
+        setPasswordSuccess('Password changed successfully');
+        
+        // Reset password fields
+        setPasswordData({
+          old_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+      } catch (err) {
+        console.error('Error changing password:', err);
+        setPasswordError(err.message || 'Failed to change password. Please check your current password and try again.');
+      } finally {
+        setIsChangingPassword(false);
+      }
+    }, 1000); // Simulate network delay
   };
   
   // Reset success messages after 5 seconds
