@@ -1,38 +1,27 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import HomePage from './pages/HomePage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
- 
+
+// Lazy load pages for better performance
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AssetList = lazy(() => import('./pages/investments/AssetList'));
 const AddAsset = lazy(() => import('./pages/investments/AddAsset'));
 const AssetDetails = lazy(() => import('./pages/investments/AssetDetails'));
 const EditAsset = lazy(() => import('./pages/investments/EditAsset'));
- 
 const Nominees = lazy(() => import('./pages/Nominees'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
-
-// Auth Guard HOC
-const PrivateRoute = ({ children }) => {
-  const isAuthenticated = localStorage.getItem('isLoggedIn') === 'true';
-  
-  if (!isAuthenticated) {
-    // Redirect to login with return path
-    return <Navigate to="/login" state={{ from: window.location }} replace />;
-  }
-  
-  return children;
-};
 
 // Loading component for Suspense fallback
 const LoadingFallback = () => (
@@ -45,6 +34,15 @@ const LoadingFallback = () => (
 );
 
 function App() {
+  // Clean up any refresh intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (window.tokenRefreshInterval) {
+        clearInterval(window.tokenRefreshInterval);
+      }
+    };
+  }, []);
+
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
@@ -60,9 +58,9 @@ function App() {
         
         {/* Protected Routes */}
         <Route element={
-          <PrivateRoute>
+          <ProtectedRoute>
             <MainLayout />
-          </PrivateRoute>
+          </ProtectedRoute>
         }>
           <Route path="/dashboard" element={<Dashboard />} />
           
@@ -74,7 +72,7 @@ function App() {
           
           {/* Other protected routes */}
           <Route path="/nominees" element={<Nominees />} />
-          {/*<Route path="/alerts" element={<Alerts />} />*/}
+          <Route path="/alerts" element={<Alerts />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
         

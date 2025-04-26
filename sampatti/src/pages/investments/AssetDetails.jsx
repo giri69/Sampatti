@@ -1,63 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Edit, Trash2, FileText, Calculator, 
-  TrendingUp, TrendingDown, Calendar, Tag, AlertTriangle 
-} from 'lucide-react';
-
-import { getAssetById, deleteAsset, getAssetHistory, updateAssetValue } from '../../utils/assetService';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, Edit, Trash2, FileText, Calculator, TrendingUp, TrendingDown, Calendar, Tag, AlertTriangle } from 'lucide-react';
+import { useAssets } from '../../store';
 
 const AssetDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const [asset, setAsset] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { 
+    currentAsset,
+    assetHistory, 
+    loading, 
+    error,
+    fetchAssetById,
+    fetchAssetHistory,
+    deleteAsset,
+    updateAssetValue 
+  } = useAssets();
+  
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [updateValueModal, setUpdateValueModal] = useState(false);
   const [newValue, setNewValue] = useState('');
   const [valueNotes, setValueNotes] = useState('');
   const [valueUpdateLoading, setValueUpdateLoading] = useState(false);
 
-  // Fetch asset details and history on load
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch asset details
-        const assetData = await getAssetById(id);
-        setAsset(assetData);
-        
-        // Fetch asset history
-        const historyData = await getAssetHistory(id);
-        if(!historyData || historyData.length === 0) {
-          setHistory([]);
-        }
-        else{
-          setHistory(historyData);
-        }
-        
-      } catch (err) {
-        console.error('Error fetching asset details:', err);
-        setError('Failed to load investment details. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    fetchAssetById(id);
+    fetchAssetHistory(id);
+  }, [id, fetchAssetById, fetchAssetHistory]);
 
-    fetchData();
-  }, [id]);
-
-  // Calculate ROI (Return on Investment)
   const calculateROI = (current_value, total_investment) => {
     if (!total_investment) return null;
     return ((current_value - total_investment) / total_investment) * 100;
   };
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -66,7 +42,6 @@ const AssetDetails = () => {
     }).format(amount);
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -77,7 +52,6 @@ const AssetDetails = () => {
     }).format(date);
   };
 
-  // Handle asset deletion
   const handleDelete = async () => {
     try {
       await deleteAsset(id);
@@ -86,43 +60,27 @@ const AssetDetails = () => {
       });
     } catch (err) {
       console.error('Error deleting asset:', err);
-      setError('Failed to delete investment. Please try again.');
     }
   };
 
-  // Handle value update submission
   const handleValueUpdate = async (e) => {
     e.preventDefault();
-    
-    if (!newValue) {
-      return;
-    }
+    if (!newValue) return;
     
     try {
       setValueUpdateLoading(true);
       await updateAssetValue(id, parseFloat(newValue), valueNotes);
-      
-      // Update the local asset state with new value
-      setAsset(prev => ({
-        ...prev,
-        current_value: parseFloat(newValue)
-      }));
-      
-      // Close modal and reset fields
       setUpdateValueModal(false);
       setNewValue('');
       setValueNotes('');
-      
     } catch (err) {
       console.error('Error updating asset value:', err);
-      setError('Failed to update investment value. Please try again.');
     } finally {
       setValueUpdateLoading(false);
     }
   };
 
-  // If still loading
-  if (isLoading) {
+  if (loading && !currentAsset) {
     return (
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -133,15 +91,14 @@ const AssetDetails = () => {
     );
   }
 
-  // If there was an error or asset not found
-  if (error || !asset) {
+  if (error || !currentAsset) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <a href="/investments" className="flex items-center text-blue-400 hover:text-blue-300">
+          <Link to="/investments" className="flex items-center text-blue-400 hover:text-blue-300">
             <ArrowLeft size={16} className="mr-2" />
             Back to Investments
-          </a>
+          </Link>
         </div>
         
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 text-center">
@@ -152,28 +109,26 @@ const AssetDetails = () => {
           <p className="text-gray-400 mb-6">
             The investment you are looking for does not exist or you don't have permission to view it.
           </p>
-          <a 
-            href="/investments" 
+          <Link 
+            to="/investments" 
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
           >
             Back to Investments
-          </a>
+          </Link>
         </div>
       </div>
     );
   }
 
-  // Calculate ROI for this asset
-  const roi = calculateROI(asset.current_value, asset.total_investment);
+  const roi = calculateROI(currentAsset.current_value, currentAsset.total_investment);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Back button and action buttons */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <a href="/investments" className="flex items-center text-blue-400 hover:text-blue-300 mb-4 md:mb-0">
+        <Link to="/investments" className="flex items-center text-blue-400 hover:text-blue-300 mb-4 md:mb-0">
           <ArrowLeft size={16} className="mr-2" />
           Back to Investments
-        </a>
+        </Link>
         
         <div className="flex space-x-3">
           <button 
@@ -184,13 +139,13 @@ const AssetDetails = () => {
             Update Value
           </button>
           
-          <a 
-            href={`/investments/${id}/edit`}
+          <Link 
+            to={`/investments/${id}/edit`}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             <Edit size={16} className="mr-2" />
             Edit
-          </a>
+          </Link>
           
           <button 
             onClick={() => setDeleteConfirm(true)}
@@ -202,24 +157,16 @@ const AssetDetails = () => {
         </div>
       </div>
       
-      {/* Error message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
-          {error}
-        </div>
-      )}
-      
-      {/* Asset overview */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">{asset.asset_name}</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">{currentAsset.asset_name}</h1>
           <div className="flex items-center">
             <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400 mr-3">
-              {asset.assetType}
+              {currentAsset.assetType}
             </span>
-            {asset.institution && (
+            {currentAsset.institution && (
               <span className="text-gray-400 text-sm">
-                {asset.institution}
+                {currentAsset.institution}
               </span>
             )}
           </div>
@@ -228,12 +175,12 @@ const AssetDetails = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <p className="text-gray-400 text-sm mb-1">Current Value</p>
-            <p className="text-2xl font-bold text-white">{formatCurrency(asset.current_value)}</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(currentAsset.current_value)}</p>
           </div>
           
           <div>
             <p className="text-gray-400 text-sm mb-1">Initial Investment</p>
-            <p className="text-2xl font-bold text-white">{formatCurrency(asset.total_investment)}</p>
+            <p className="text-2xl font-bold text-white">{formatCurrency(currentAsset.total_investment)}</p>
           </div>
           
           <div>
@@ -258,12 +205,11 @@ const AssetDetails = () => {
           
           <div>
             <p className="text-gray-400 text-sm mb-1">Purchase Date</p>
-            <p className="text-2xl font-bold text-white">{formatDate(asset.purchase_date)}</p>
+            <p className="text-2xl font-bold text-white">{formatDate(currentAsset.purchase_date)}</p>
           </div>
         </div>
       </div>
       
-      {/* Asset details */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
@@ -272,21 +218,21 @@ const AssetDetails = () => {
           </h2>
           
           <div className="space-y-4">
-            {asset.account_number && (
+            {currentAsset.account_number && (
               <div>
                 <p className="text-gray-400 text-sm">Account/Reference Number</p>
-                <p className="text-white">{asset.account_number}</p>
+                <p className="text-white">{currentAsset.account_number}</p>
               </div>
             )}
             
             <div>
               <p className="text-gray-400 text-sm">Purchase Price</p>
-              <p className="text-white">{formatCurrency(asset.purchase_price)}</p>
+              <p className="text-white">{formatCurrency(currentAsset.purchase_price)}</p>
             </div>
             
             <div>
               <p className="text-gray-400 text-sm">Quantity</p>
-              <p className="text-white">{asset.quantity}</p>
+              <p className="text-white">{currentAsset.quantity}</p>
             </div>
             
             <div className="pt-2 border-t border-gray-700">
@@ -294,15 +240,15 @@ const AssetDetails = () => {
               <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2 mb-1">
                 <div 
                   className="bg-blue-600 h-2.5 rounded-full" 
-                  style={{ width: `${(asset.risk_score / 5) * 100}%` }}
+                  style={{ width: `${(currentAsset.risk_score / 5) * 100}%` }}
                 ></div>
               </div>
               <p className="text-sm text-blue-400">
-                {asset.risk_score}/5 - {
-                  asset.risk_score === 1 ? 'Very Low Risk' :
-                  asset.risk_score === 2 ? 'Low Risk' :
-                  asset.risk_score === 3 ? 'Medium Risk' :
-                  asset.risk_score === 4 ? 'High Risk' :
+                {currentAsset.risk_score}/5 - {
+                  currentAsset.risk_score === 1 ? 'Very Low Risk' :
+                  currentAsset.risk_score === 2 ? 'Low Risk' :
+                  currentAsset.risk_score === 3 ? 'Medium Risk' :
+                  currentAsset.risk_score === 4 ? 'High Risk' :
                   'Very High Risk'
                 }
               </p>
@@ -313,15 +259,15 @@ const AssetDetails = () => {
               <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2 mb-1">
                 <div 
                   className="bg-green-600 h-2.5 rounded-full" 
-                  style={{ width: `${(asset.liquidity_score / 5) * 100}%` }}
+                  style={{ width: `${(currentAsset.liquidity_score / 5) * 100}%` }}
                 ></div>
               </div>
               <p className="text-sm text-green-400">
-                {asset.liquidity_score}/5 - {
-                  asset.liquidity_score === 1 ? 'Very Low Liquidity' :
-                  asset.liquidity_score === 2 ? 'Low Liquidity' :
-                  asset.liquidity_score === 3 ? 'Medium Liquidity' :
-                  asset.liquidity_score === 4 ? 'High Liquidity' :
+                {currentAsset.liquidity_score}/5 - {
+                  currentAsset.liquidity_score === 1 ? 'Very Low Liquidity' :
+                  currentAsset.liquidity_score === 2 ? 'Low Liquidity' :
+                  currentAsset.liquidity_score === 3 ? 'Medium Liquidity' :
+                  currentAsset.liquidity_score === 4 ? 'High Liquidity' :
                   'Very High Liquidity'
                 }
               </p>
@@ -338,31 +284,31 @@ const AssetDetails = () => {
           <div className="space-y-4">
             <div>
               <p className="text-gray-400 text-sm">Purchase Date</p>
-              <p className="text-white">{formatDate(asset.purchase_date)}</p>
+              <p className="text-white">{formatDate(currentAsset.purchase_date)}</p>
             </div>
             
             <div>
               <p className="text-gray-400 text-sm">Last Updated</p>
-              <p className="text-white">{formatDate(asset.updated_at)}</p>
+              <p className="text-white">{formatDate(currentAsset.updated_at)}</p>
             </div>
             
-            {asset.maturity_date && (
+            {currentAsset.maturity_date && (
               <div>
                 <p className="text-gray-400 text-sm">Maturity Date</p>
-                <p className="text-white">{formatDate(asset.maturity_date)}</p>
+                <p className="text-white">{formatDate(currentAsset.maturity_date)}</p>
               </div>
             )}
             
-            {asset.expectedValue && asset.maturity_date && (
+            {currentAsset.expected_value && currentAsset.maturity_date && (
               <div className="pt-2 border-t border-gray-700">
                 <p className="text-gray-400 text-sm">Expected Value at Maturity</p>
-                <p className="text-white">{formatCurrency(asset.expectedValue)}</p>
+                <p className="text-white">{formatCurrency(currentAsset.expected_value)}</p>
                 
-                {asset.expectedValue && asset.total_investment && (
+                {currentAsset.expected_value && currentAsset.total_investment && (
                   <div className="mt-2">
                     <p className="text-gray-400 text-sm">Expected Return</p>
                     <p className="text-green-400">
-                      {(((asset.expectedValue - asset.total_investment) / asset.total_investment) * 100).toFixed(2)}%
+                      {(((currentAsset.expected_value - currentAsset.total_investment) / currentAsset.total_investment) * 100).toFixed(2)}%
                     </p>
                   </div>
                 )}
@@ -378,11 +324,11 @@ const AssetDetails = () => {
           </h2>
           
           <div className="space-y-4">
-            {asset.tags && asset.tags.length > 0 && (
+            {currentAsset.tags && currentAsset.tags.length > 0 && (
               <div>
                 <p className="text-gray-400 text-sm mb-2">Tags</p>
                 <div className="flex flex-wrap gap-2">
-                  {asset.tags.map(tag => (
+                  {currentAsset.tags.map(tag => (
                     <span 
                       key={tag} 
                       className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm"
@@ -394,18 +340,17 @@ const AssetDetails = () => {
               </div>
             )}
             
-            {asset.notes && (
+            {currentAsset.notes && (
               <div className="pt-2 border-t border-gray-700">
                 <p className="text-gray-400 text-sm mb-1">Notes</p>
-                <p className="text-white whitespace-pre-line">{asset.notes}</p>
+                <p className="text-white whitespace-pre-line">{currentAsset.notes}</p>
               </div>
             )}
           </div>
         </div>
       </div>
       
-      {/* Value history */}
-      {history && history.length > 0 && (
+      {assetHistory && assetHistory.length > 0 && (
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Value History</h2>
           
@@ -420,7 +365,7 @@ const AssetDetails = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {history.map((entry) => (
+                {assetHistory.map((entry) => (
                   <tr key={entry.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                       {formatDate(entry.date)}
@@ -449,13 +394,12 @@ const AssetDetails = () => {
         </div>
       )}
       
-      {/* Delete confirmation modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 border border-gray-700">
             <h3 className="text-xl font-bold text-white mb-4">Confirm Deletion</h3>
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete <span className="text-white font-medium">{asset.asset_name}</span>? 
+              Are you sure you want to delete <span className="text-white font-medium">{currentAsset.asset_name}</span>? 
               This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-4">
@@ -476,7 +420,6 @@ const AssetDetails = () => {
         </div>
       )}
       
-      {/* Update value modal */}
       {updateValueModal && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 border border-gray-700">
@@ -496,7 +439,6 @@ const AssetDetails = () => {
                     type="text"
                     value={newValue}
                     onChange={(e) => {
-                      // Allow only numbers and decimal point
                       if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) {
                         setNewValue(e.target.value);
                       }
@@ -559,5 +501,6 @@ const AssetDetails = () => {
       )}
     </div>
   );
-}
+};
+
 export default AssetDetails;

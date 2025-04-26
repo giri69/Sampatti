@@ -1,47 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { PlusCircle, Filter, Search, TrendingUp, TrendingDown, Info, Edit, Trash2, ExternalLink } from 'lucide-react';
-import { getAllAssets, deleteAsset } from '../../utils/assetService';
+import { useAssets } from '../../store';
 
 const AssetList = () => {
-  const [assets, setAssets] = useState([]);
+  const { assets, loading, error, fetchAssets, deleteAsset } = useAssets();
   const [filteredAssets, setFilteredAssets] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'assetName', direction: 'asc' });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Fetch assets on component mount
   useEffect(() => {
-    const fetchAssets = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getAllAssets();
-        setAssets(data);
-        setFilteredAssets(data);
-        console.log(data)
-      } catch (err) {
-        console.error('Error fetching assets:', err);
-        setError('Failed to load investments. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchAssets();
-  }, []);
+  }, [fetchAssets]);
 
-  // Filter assets based on search term and filter type
   useEffect(() => {
     let result = assets;
     
-    // Apply type filter
     if (filterType !== 'All') {
       result = result.filter(asset => asset.assetType === filterType);
     }
     
-    // Apply search filter
     if (searchTerm) {
       const lowercasedTerm = searchTerm.toLowerCase();
       result = result.filter(asset => 
@@ -51,7 +31,6 @@ const AssetList = () => {
       );
     }
     
-    // Apply sorting
     result = [...result].sort((a, b) => {
       if (a[sortConfig.key] < b[sortConfig.key]) {
         return sortConfig.direction === 'asc' ? -1 : 1;
@@ -65,10 +44,8 @@ const AssetList = () => {
     setFilteredAssets(result);
   }, [assets, searchTerm, filterType, sortConfig]);
 
-  // Extract unique asset types for filter dropdown
   const assetTypes = ['All', ...new Set(assets.map(asset => asset.assetType))].filter(Boolean);
 
-  // Handle sort request
   const requestSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -77,13 +54,11 @@ const AssetList = () => {
     setSortConfig({ key, direction });
   };
 
-  // Calculate ROI (Return on Investment)
   const calculateROI = (current_value, total_investment) => {
     if (!total_investment) return null;
     return ((current_value - total_investment) / total_investment) * 100;
   };
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -92,7 +67,6 @@ const AssetList = () => {
     }).format(amount);
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -103,19 +77,15 @@ const AssetList = () => {
     }).format(date);
   };
 
-  // Handle asset deletion
   const handleDelete = async (id) => {
     try {
       await deleteAsset(id);
-      setAssets(assets.filter(asset => asset.id !== id));
       setDeleteConfirm(null);
     } catch (err) {
       console.error('Error deleting asset:', err);
-      setError('Failed to delete investment. Please try again.');
     }
   };
 
-  // Total portfolio value
   const totalPortfolioValue = filteredAssets.reduce((sum, asset) => sum + asset.current_value, 0);
   const total_investment = filteredAssets.reduce((sum, asset) => sum + asset.total_investment, 0);
   const portfolioROI = calculateROI(totalPortfolioValue, total_investment);
@@ -127,16 +97,12 @@ const AssetList = () => {
           <h1 className="text-3xl font-bold text-white mb-2">Investments</h1>
           <p className="text-gray-400">Manage and track all your investments in one place</p>
         </div>
-        <a 
-          href="/investments/add" 
-          className="mt-4 md:mt-0 flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-        >
+        <Link to="/investments/add" className="mt-4 md:mt-0 flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
           <PlusCircle size={18} className="mr-2" />
           Add Investment
-        </a>
+        </Link>
       </div>
 
-      {/* Portfolio summary card */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
         <h2 className="text-xl font-semibold text-white mb-4">Portfolio Summary</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -164,14 +130,12 @@ const AssetList = () => {
         </div>
       </div>
 
-      {/* Error message */}
       {error && (
         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
           {error}
         </div>
       )}
 
-      {/* Filters and search */}
       <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-6">
         <div className="relative flex-grow">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -204,9 +168,8 @@ const AssetList = () => {
         </div>
       </div>
 
-      {/* Assets table */}
       <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-        {isLoading ? (
+        {loading ? (
           <div className="flex items-center justify-center p-12">
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <span className="ml-3 text-white">Loading investments...</span>
@@ -321,25 +284,13 @@ const AssetList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
-                          <a 
-                            href={`/investments/${asset.id}`}
-                            className="text-gray-400 hover:text-white"
-                            title="View details"
-                          >
+                          <Link to={`/investments/${asset.id}`} className="text-gray-400 hover:text-white" title="View details">
                             <ExternalLink size={18} />
-                          </a>
-                          <a 
-                            href={`/investments/${asset.id}/edit`}
-                            className="text-blue-400 hover:text-blue-300"
-                            title="Edit"
-                          >
+                          </Link>
+                          <Link to={`/investments/${asset.id}/edit`} className="text-blue-400 hover:text-blue-300" title="Edit">
                             <Edit size={18} />
-                          </a>
-                          <button 
-                            onClick={() => setDeleteConfirm(asset.id)}
-                            className="text-red-400 hover:text-red-300"
-                            title="Delete"
-                          >
+                          </Link>
+                          <button onClick={() => setDeleteConfirm(asset.id)} className="text-red-400 hover:text-red-300" title="Delete">
                             <Trash2 size={18} />
                           </button>
                         </div>
@@ -360,19 +311,15 @@ const AssetList = () => {
                 : "Get started by adding your first investment"}
             </p>
             {!searchTerm && filterType === 'All' && (
-              <a 
-                href="/investments/add" 
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-              >
+              <Link to="/investments/add" className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
                 <PlusCircle size={18} className="mr-2" />
                 Add Investment
-              </a>
+              </Link>
             )}
           </div>
         )}
       </div>
 
-      {/* Delete confirmation modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 border border-gray-700">

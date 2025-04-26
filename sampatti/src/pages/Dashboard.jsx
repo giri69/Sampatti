@@ -1,12 +1,11 @@
-// src/pages/Dashboard.jsx
+// src/pages/Dashboard.jsx - Updated to use Zustand store
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   PieChart, TrendingUp, TrendingDown, Plus, 
   DollarSign, CreditCard, Home, LineChart, AlertTriangle
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { getDashboardSummary, getAlerts } from '../utils/api';
+import { useAuth, useAssets, useAlerts } from '../store';
 
 // Import common components
 import Card from '../components/common/Card';
@@ -150,12 +149,21 @@ const AlertItem = ({ alert, assetLink = false }) => {
 // Dashboard Component
 const Dashboard = () => {
   const { currentUser } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [alerts, setAlerts] = useState([]);
-  const [hasInvestments, setHasInvestments] = useState(true);
+  const { 
+    portfolioSummary, 
+    loading: assetsLoading, 
+    error: assetError,
+    fetchPortfolioSummary 
+  } = useAssets();
+  
+  const {
+    alerts,
+    loading: alertsLoading,
+    fetchAlerts
+  } = useAlerts();
 
+  const [hasInvestments, setHasInvestments] = useState(true);
+  
   // Format helpers
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-IN', {
@@ -181,39 +189,21 @@ const Dashboard = () => {
   // Load dashboard data
   useEffect(() => {
     const loadDashboardData = async () => {
-      setIsLoading(true);
-      setError(null);
-      
       try {
         // Load portfolio summary
-        const data = await getDashboardSummary();
-        console.log('Dashboard Data:', data);
-        setPortfolioData(data);
-        setHasInvestments(data.asset_count > 0);
-      
+        const summary = await fetchPortfolioSummary();
+        setHasInvestments(summary?.asset_count > 0);
+        
+        // Load alerts (top 5 unread)
+        await fetchAlerts(false);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again.');
-        
-        // Set empty portfolio data to avoid null reference errors
-        setPortfolioData({
-          total_value: 0,
-          total_investment: 0,
-          assets_by_type: {},
-          asset_count: 0,
-          average_return: 0,
-          average_risk_score: 0,
-          upcoming_maturities: [],
-          last_updated: new Date().toISOString()
-        });
         setHasInvestments(false);
-      } finally {
-        setIsLoading(false);
       }
     };
     
     loadDashboardData();
-  }, []);
+  }, [fetchPortfolioSummary, fetchAlerts]);
 
   // EmptyState component for no investments
   const EmptyState = () => (
@@ -226,24 +216,26 @@ const Dashboard = () => {
         You haven't added any investments yet. Start tracking your investments to see detailed insights here.
       </p>
       <Button asChild>
-  <Link to="/investments/add" className="flex items-center gap-2">
-    <Plus size={18} />
-    Add Your First Investment
-  </Link>
-</Button>
+        <Link to="/investments/add" className="flex items-center gap-2">
+          <Plus size={18} />
+          Add Your First Investment
+        </Link>
+      </Button>
     </Card>
   );
 
-  if (isLoading) {
+  const isLoading = assetsLoading || alertsLoading;
+
+  if (isLoading && !portfolioSummary) {
     return <LoadingState message="Loading your dashboard..." />;
   }
 
-  if (error && !hasInvestments) {
+  if (assetError && !hasInvestments) {
     return (
       <div>
         <ErrorState 
           message="Error Loading Dashboard" 
-          details={error}
+          details={assetError}
           onRetry={() => window.location.reload()}
         />
         <EmptyState />
@@ -252,7 +244,7 @@ const Dashboard = () => {
   }
 
   // Initialize data or use empty values as fallback
-  const portfolioSummary = portfolioData || {
+  const summary = portfolioSummary || {
     total_value: 0,
     total_investment: 0,
     assets_by_type: {},
@@ -264,14 +256,14 @@ const Dashboard = () => {
   };
   
   // Calculate the total return in rupees
-  const totalReturnValue = portfolioSummary.total_value - portfolioSummary.total_investment;
+  const totalReturnValue = summary.total_value - summary.total_investment;
   const isPositiveReturn = totalReturnValue >= 0;
   
   // Calculate allocation percentages for the chart
-  const assetAllocation = Object.entries(portfolioSummary.assets_by_type || {}).map(([type, value]) => ({
+  const assetAllocation = Object.entries(summary.assets_by_type || {}).map(([type, value]) => ({
     type,
     value,
-    percentage: Math.round((value / Math.max(portfolioSummary.total_value, 1)) * 100)
+    percentage: Math.round((value / Math.max(summary.total_value, 1)) * 100)
   }));
 
   // If no investments found, display empty state
@@ -299,7 +291,7 @@ const Dashboard = () => {
       </div>
       
       {/* Error message if any */}
-      {error && <ErrorState message={error} onRetry={() => window.location.reload()} />}
+      {assetError && <ErrorState message={assetError} onRetry={() => window.location.reload()} />}
       
       {/* Portfolio Summary - Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -308,7 +300,7 @@ const Dashboard = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm mb-1">Total Portfolio Value</p>
-              <h3 className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.total_value)}</h3>
+              <h3 className="text-2xl font-bold text-white">{formatCurrency(summary.total_value)}</h3>
             </div>
             <div className="p-2 bg-blue-500/20 rounded-lg">
               <DollarSign size={20} className="text-blue-400" />
@@ -316,7 +308,7 @@ const Dashboard = () => {
           </div>
           <div className="mt-2 flex items-center">
             <span className={`text-sm ${isPositiveReturn ? 'text-green-400' : 'text-red-400'}`}>
-              {isPositiveReturn ? '+' : ''}{formatCurrency(totalReturnValue)} ({portfolioSummary.average_return?.toFixed(1) || 0}%)
+              {isPositiveReturn ? '+' : ''}{formatCurrency(totalReturnValue)} ({summary.average_return?.toFixed(1) || 0}%)
             </span>
             <TrendingUp size={14} className={`ml-1 ${isPositiveReturn ? 'text-green-400' : 'text-red-400'}`} />
           </div>
@@ -327,14 +319,14 @@ const Dashboard = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm mb-1">Total Investment</p>
-              <h3 className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.total_investment)}</h3>
+              <h3 className="text-2xl font-bold text-white">{formatCurrency(summary.total_investment)}</h3>
             </div>
             <div className="p-2 bg-green-500/20 rounded-lg">
               <CreditCard size={20} className="text-green-400" />
             </div>
           </div>
           <div className="mt-2 text-sm text-gray-400">
-            Across {portfolioSummary.asset_count} investments
+            Across {summary.asset_count} investments
           </div>
         </Card>
         
@@ -362,15 +354,15 @@ const Dashboard = () => {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-gray-400 text-sm mb-1">Average Risk Score</p>
-              <h3 className="text-2xl font-bold text-white">{portfolioSummary.average_risk_score?.toFixed(1)-1 || '0'}/5</h3>
+              <h3 className="text-2xl font-bold text-white">{summary.average_risk_score?.toFixed(1) || '0'}/5</h3>
             </div>
             <div className="p-2 bg-purple-500/20 rounded-lg">
               <LineChart size={20} className="text-purple-400" />
             </div>
           </div>
           <div className="mt-2 text-sm text-gray-400">
-            {portfolioSummary.average_risk_score < 2 ? 'Low' : 
-             portfolioSummary.average_risk_score < 4 ? 'Moderate' : 'High'} risk level
+            {summary.average_risk_score < 2 ? 'Low' : 
+             summary.average_risk_score < 4 ? 'Moderate' : 'High'} risk level
           </div>
         </Card>
       </div>
@@ -384,7 +376,7 @@ const Dashboard = () => {
         >
           <AssetAllocationChart 
             assetAllocation={assetAllocation} 
-            totalValue={portfolioSummary.total_value} 
+            totalValue={summary.total_value} 
           />
         </Card>
         
@@ -400,7 +392,7 @@ const Dashboard = () => {
         >
           <div className="p-2">
             {/* Upcoming Maturities Alert */}
-            {portfolioSummary.upcoming_maturities && portfolioSummary.upcoming_maturities.length > 0 && (
+            {summary.upcoming_maturities && summary.upcoming_maturities.length > 0 && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg m-2">
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="font-medium text-red-400">Upcoming Maturity</h4>
@@ -409,9 +401,9 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-sm text-gray-300 mb-1">
-                  Your {portfolioSummary.upcoming_maturities[0].asset_name} of {formatCurrency(portfolioSummary.upcoming_maturities[0].expected_value)} is maturing on {formatDate(portfolioSummary.upcoming_maturities[0].maturity_date)}.
+                  Your {summary.upcoming_maturities[0].asset_name} of {formatCurrency(summary.upcoming_maturities[0].expected_value)} is maturing on {formatDate(summary.upcoming_maturities[0].maturity_date)}.
                 </p>
-                <Link to={`/investments/${portfolioSummary.upcoming_maturities[0].id}`} className="text-xs text-blue-400 hover:text-blue-300 flex items-center mt-1">
+                <Link to={`/investments/${summary.upcoming_maturities[0].id}`} className="text-xs text-blue-400 hover:text-blue-300 flex items-center mt-1">
                   View Details
                 </Link>
               </div>
@@ -419,7 +411,7 @@ const Dashboard = () => {
             
             {/* Regular Alerts */}
             {alerts && alerts.length > 0 ? (
-              alerts.map((alert, index) => (
+              alerts.slice(0, 3).map((alert, index) => (
                 <AlertItem key={alert.id || index} alert={alert} assetLink={true} />
               ))
             ) : (
@@ -438,7 +430,7 @@ const Dashboard = () => {
       
       {/* Last Updated Info */}
       <div className="text-xs text-gray-500 text-right">
-        Last updated: {formatDate(portfolioSummary.last_updated)}
+        Last updated: {formatDate(summary.last_updated)}
       </div>
     </div>
   );

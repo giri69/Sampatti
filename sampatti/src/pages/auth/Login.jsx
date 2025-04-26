@@ -1,9 +1,8 @@
-// src/pages/auth/Login.jsx
+// src/pages/auth/Login.jsx - Updated to use Zustand store
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
-import { loginUser } from '../../utils/api';
-import { useAuth } from '../../context/AuthContext';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../store';
 import Button from '../../components/common/Button';
 import ErrorState from '../../components/common/ErrorState';
 
@@ -11,56 +10,39 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  
+  // Use Zustand store auth
+  const { login, loading, error, clearError } = useAuth();
 
   useEffect(() => {
+    // Clear any previous auth errors on mount
+    clearError();
+    
     // Check for messages from redirects
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
       // Clean up state after reading the message
       window.history.replaceState({}, document.title);
     }
-  }, [location]);
+  }, [location, clearError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccessMessage('');
-    setIsLoading(true);
     
     try {
-      const response = await loginUser(email, password);
-      
-      // Check if response has required properties
-      if (!response || !response.access_token) {
-        throw new Error('Invalid response from server');
-      }
-      
-      // Update auth context with user data
-      login(
-        response.access_token, 
-        response.refresh_token, 
-        response.user || { email } // Use user data from response or fallback
-      );
+      // Login with Zustand store
+      await login(email, password);
       
       // Get redirect path from location state or default to dashboard
       const redirectTo = location.state?.from?.pathname || '/dashboard';
       navigate(redirectTo);
     } catch (err) {
+      // Error already handled in store
       console.error('Login error:', err);
-      setError(
-        err.message === 'Failed to fetch' 
-          ? 'Network error. Please check your internet connection.' 
-          : err.message || 'Invalid email or password. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -101,7 +83,7 @@ const Login = () => {
               className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="Enter your email"
               required
-              disabled={isLoading}
+              disabled={loading}
             />
           </div>
         </div>
@@ -122,13 +104,13 @@ const Login = () => {
               className="block w-full pl-10 pr-10 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
               placeholder="••••••••"
               required
-              disabled={isLoading}
+              disabled={loading}
             />
             <button
               type="button"
               className="absolute inset-y-0 right-0 pr-3 flex items-center"
               onClick={() => setShowPassword(!showPassword)}
-              disabled={isLoading}
+              disabled={loading}
             >
               {showPassword ? (
                 <EyeOff size={18} className="text-gray-500" />
@@ -145,7 +127,7 @@ const Login = () => {
               id="remember-me"
               type="checkbox"
               className="h-4 w-4 rounded border-gray-600 bg-black text-blue-500 focus:ring-blue-500"
-              disabled={isLoading}
+              disabled={loading}
             />
             <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
               Remember me
@@ -155,7 +137,7 @@ const Login = () => {
           <Link 
             to="/forgot-password" 
             className="text-sm text-blue-400 hover:text-blue-300"
-            tabIndex={isLoading ? -1 : 0}
+            tabIndex={loading ? -1 : 0}
           >
             Forgot password?
           </Link>
@@ -164,7 +146,7 @@ const Login = () => {
         <Button
           type="submit"
           variant="white"
-          isLoading={isLoading}
+          isLoading={loading}
           className="w-full"
         >
           Sign in
@@ -176,7 +158,7 @@ const Login = () => {
         <Link 
           to="/register" 
           className="font-medium text-blue-400 hover:text-blue-300"
-          tabIndex={isLoading ? -1 : 0}
+          tabIndex={loading ? -1 : 0}
         >
           Create an account
         </Link>
