@@ -486,6 +486,57 @@ export const getDashboardSummary = async () => {
   return getPortfolioSummary(); 
 };
 
+export const emergencyLogin = async (email, accessCode) => {
+  try {
+    const response = await fetch('/api/v1/auth/emergency-access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        emergency_access_code: accessCode
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Emergency access failed (${response.status})`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Emergency access error:', error);
+    throw error;
+  }
+};
+
+export const getEmergencyData = async (userId) => {
+  try {
+    const token = localStorage.getItem('emergencyAccessToken');
+    if (!token) {
+      throw new Error('No emergency access token found');
+    }
+    
+    const response = await fetch(`/api/v1/nominee-access/data/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed to fetch emergency data (${response.status})`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching emergency data:', error);
+    throw error;
+  }
+};
+
 // Export all functions
 export default {
   // Auth

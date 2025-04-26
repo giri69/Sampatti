@@ -50,41 +50,40 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<HomePage />} />
-        
-        {/* Auth Routes */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-        </Route>
-        
-        {/* Emergency Access Routes (Public) */}
-        <Route path="/emergency-access" element={<EmergencyAccess />} />
-        <Route path="/emergency-view/:userId" element={<EmergencyView />} />
-        
-        {/* Protected Routes */}
-        <Route element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }>
-          <Route path="/dashboard" element={<Dashboard />} />
-          
-          {/* Investment Routes */}
-          <Route path="/investments" element={<AssetList />} />
-          <Route path="/investments/add" element={<AddAsset />} />
-          <Route path="/investments/:id" element={<AssetDetails />} />
-          <Route path="/investments/:id/edit" element={<EditAsset />} />
-          
-          {/* Other protected routes */}
-          <Route path="/nominees" element={<Nominees />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-        
-        {/* Not Found Route */}
-        <Route path="/404" element={<NotFound />} />
-        <Route path="*" element={<Navigate to="/404" replace />} />
+
+{/* Auth Routes */}
+<Route element={<AuthLayout />}>
+  <Route path="/login" element={<Login />} />
+  <Route path="/register" element={<Register />} />
+  <Route path="/forgot-password" element={<ForgotPassword />} />
+</Route>
+
+{/* Emergency Access Route (Public) - simplified to a single route */}
+<Route path="/emergency-access" element={<EmergencyAccess />} />
+
+{/* Protected Routes */}
+<Route element={
+  <ProtectedRoute>
+    <MainLayout />
+  </ProtectedRoute>
+}>
+  <Route path="/dashboard" element={<Dashboard />} />
+  
+  {/* Investment Routes */}
+  <Route path="/investments" element={<AssetList />} />
+  <Route path="/investments/add" element={<AddAsset />} />
+  <Route path="/investments/:id" element={<AssetDetails />} />
+  <Route path="/investments/:id/edit" element={<EditAsset />} />
+  
+  {/* Other protected routes */}
+  <Route path="/nominees" element={<Nominees />} />
+  <Route path="/alerts" element={<Alerts />} />
+  <Route path="/settings" element={<Settings />} />
+</Route>
+
+{/* Not Found Route */}
+<Route path="/404" element={<NotFound />} />
+<Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
     </Suspense>
   );

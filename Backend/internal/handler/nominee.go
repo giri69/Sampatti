@@ -236,7 +236,8 @@ func (h *NomineeHandler) SendInvitation(c *gin.Context) {
 		return
 	}
 
-	accessCode, err := h.nomineeService.SendInvitation(c.Request.Context(), nomineeID, userID)
+	// Get nominee to validate ownership
+	nominee, err := h.nomineeService.GetByID(c.Request.Context(), nomineeID, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, service.ErrNomineeNotFound) {
@@ -248,9 +249,26 @@ func (h *NomineeHandler) SendInvitation(c *gin.Context) {
 		return
 	}
 
+	// Generate access code
+	accessCode, err := h.authService.GenerateNomineeInvite(c.Request.Context(), nomineeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate invitation code"})
+		return
+	}
+
+	// Update nominee status to active immediately
+	if err := h.nomineeService.ActivateNominee(c.Request.Context(), nomineeID, userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to activate nominee"})
+		return
+	}
+
+	// Return the code directly to be shared with the nominee
 	c.JSON(http.StatusOK, gin.H{
-		"message": "invitation sent successfully",
-		"code":    accessCode,
+		"message":       "Access code generated successfully",
+		"code":          accessCode,
+		"nominee_email": nominee.Email,
+		"nominee_name":  nominee.Name,
+		"instructions":  "Share this code with your nominee. They can use it along with their email to access your investment information in case of emergency.",
 	})
 }
 

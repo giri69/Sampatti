@@ -22,6 +22,8 @@ const EmergencyAccess = () => {
     setIsLoading(true);
     
     try {
+      console.log(`Attempting emergency access with email: ${email} and code: ${accessCode}`);
+      
       const response = await fetch('/api/v1/auth/emergency-access', {
         method: 'POST',
         headers: {
@@ -33,18 +35,42 @@ const EmergencyAccess = () => {
         })
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Invalid access credentials');
+      // For debugging - log the full response
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response body:', responseText);
+      
+      // Parse the response if it's JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        throw new Error('Invalid response from server');
       }
       
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Invalid access credentials');
+      }
+      
+      // Check if we got the necessary data
+      if (!data.access_token) {
+        throw new Error('No access token received');
+      }
       
       // Store the emergency access token
       localStorage.setItem('emergencyAccessToken', data.access_token);
       
+      // Get the user ID for redirection
+      const userId = data.user_id;
+      if (!userId) {
+        throw new Error('Missing user information in response');
+      }
+      
+      console.log(`Emergency access granted for user: ${userId}`);
+      
       // Navigate to the emergency data view
-      window.location.href = `/emergency-view/${data.user_id}`;
+      window.location.href = `/emergency-view/${userId}`;
     } catch (err) {
       console.error('Emergency access error:', err);
       setError(err.message || 'Failed to verify access. Please check your email and code.');

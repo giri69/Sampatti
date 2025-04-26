@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { FileText, PieChart, Shield, AlertTriangle, User, ExternalLink } from 'lucide-react';
-import Card from '../components/common/Card';
-import LoadingState from '../components/common/LoadingState';
-import ErrorState from '../components/common/ErrorState';
+import { FileText, PieChart, Shield, AlertTriangle, User, ExternalLink, LogOut } from 'lucide-react';
+import { getEmergencyData } from '../utils/api';
+import Card from './common/Card';
+import LoadingState from './common/LoadingState';
+import ErrorState from './common/ErrorState';
 
 // Asset Component for rendering investment items
 const AssetItem = ({ asset }) => {
@@ -45,6 +46,7 @@ const AssetItem = ({ asset }) => {
 // Document Component for rendering document items
 const DocumentItem = ({ document }) => {
   const getDocumentIcon = (mimeType) => {
+    if (!mimeType) return '📄';
     if (mimeType.includes('pdf')) return '📄';
     if (mimeType.includes('image')) return '🖼️';
     if (mimeType.includes('text')) return '📝';
@@ -53,6 +55,7 @@ const DocumentItem = ({ document }) => {
   };
   
   const formatFileSize = (bytes) => {
+    if (!bytes) return '';
     if (bytes < 1024) return bytes + ' bytes';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -104,22 +107,15 @@ const EmergencyView = () => {
         }
         
         // Get user data
-        const dataResponse = await fetch(`/api/v1/emergency-access/data/${userId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
+        const data = await getEmergencyData(userId);
+        setUserData(data);
         
-        if (!dataResponse.ok) {
-          throw new Error('Failed to fetch user data');
+        // Set owner info
+        if (data.owner) {
+          setOwnerInfo(data.owner);
         }
         
-        const data = await dataResponse.json();
-        setUserData(data);
-        setOwnerInfo(data.owner);
-        
-        // Get access level from response header or data
+        // Get access level from response
         setAccessLevel(data.accessLevel || 'Limited');
         
       } catch (err) {
@@ -139,7 +135,7 @@ const EmergencyView = () => {
   };
   
   if (isLoading) {
-    return <LoadingState message="Loading data..." />;
+    return <LoadingState message="Loading emergency access data..." />;
   }
   
   if (error) {
@@ -164,8 +160,9 @@ const EmergencyView = () => {
         </div>
         <button 
           onClick={handleLogout}
-          className="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700"
+          className="px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 flex items-center"
         >
+          <LogOut size={18} className="mr-2" />
           Exit Access
         </button>
       </header>

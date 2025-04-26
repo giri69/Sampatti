@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Mail, User, Phone, Shield } from 'lucide-react';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import ErrorState from '../components/common/ErrorState';
+import { Mail, User, Shield } from 'lucide-react';
 
 const NomineeForm = ({ isOpen, onClose, onSubmit, editingNominee = null }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone_number: '',
-    relationship: '',
     access_level: 'Limited'
   });
   
@@ -22,8 +17,6 @@ const NomineeForm = ({ isOpen, onClose, onSubmit, editingNominee = null }) => {
       setFormData({
         name: editingNominee.name || '',
         email: editingNominee.email || '',
-        phone_number: editingNominee.phone_number || '',
-        relationship: editingNominee.relationship || '',
         access_level: editingNominee.access_level || 'Limited'
       });
     } else {
@@ -31,8 +24,6 @@ const NomineeForm = ({ isOpen, onClose, onSubmit, editingNominee = null }) => {
       setFormData({
         name: '',
         email: '',
-        phone_number: '',
-        relationship: '',
         access_level: 'Limited'
       });
     }
@@ -103,95 +94,106 @@ const NomineeForm = ({ isOpen, onClose, onSubmit, editingNominee = null }) => {
         
         {error && (
           <div className="px-6 pt-5">
-            <ErrorState message={error} />
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400">
+              {error}
+            </div>
           </div>
         )}
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <Input
-            label="Email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter nominee's email"
-            icon={<Mail size={18} className="text-gray-500" />}
-            required
-            disabled={isLoading || (editingNominee !== null)}
-            hint={editingNominee ? "Email cannot be changed" : "Nominee will use this email for access"}
-          />
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium mb-2 text-white">
+              Email <span className="text-red-400">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail size={18} className="text-gray-500" />
+              </div>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
+                placeholder="Enter nominee's email"
+                required
+                disabled={isLoading || (editingNominee !== null)}
+              />
+            </div>
+            {editingNominee && (
+              <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
+            )}
+          </div>
           
-          <Input
-            label="Full Name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Enter nominee's full name"
-            icon={<User size={18} className="text-gray-500" />}
-            required
-            disabled={isLoading}
-          />
-          
-          <Input
-            label="Phone Number"
-            name="phone_number"
-            type="tel"
-            value={formData.phone_number}
-            onChange={handleChange}
-            placeholder="Enter nominee's phone number"
-            icon={<Phone size={18} className="text-gray-500" />}
-            disabled={isLoading}
-          />
-          
-          <Input
-            label="Relationship"
-            name="relationship"
-            value={formData.relationship}
-            onChange={handleChange}
-            placeholder="e.g., Son, Daughter, Spouse"
-            disabled={isLoading}
-          />
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium mb-2 text-white">
+              Name <span className="text-red-400">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User size={18} className="text-gray-500" />
+              </div>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                value={formData.name}
+                onChange={handleChange}
+                className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
+                placeholder="Enter nominee's name"
+                required
+                disabled={isLoading}
+              />
+            </div>
+          </div>
           
           <div>
             <label className="block text-sm font-medium mb-2 text-white">
               Access Level <span className="text-red-400">*</span>
             </label>
-            <select
-              name="access_level"
-              value={formData.access_level}
-              onChange={handleChange}
-              className="block w-full px-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
-              disabled={isLoading}
-              required
-            >
-              <option value="DocumentsOnly">Documents Only</option>
-              <option value="Limited">Limited Access</option>
-              <option value="Full">Full Access</option>
-            </select>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Shield size={18} className="text-gray-500" />
+              </div>
+              <select
+                name="access_level"
+                value={formData.access_level}
+                onChange={handleChange}
+                className="block w-full pl-10 px-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white"
+                disabled={isLoading}
+                required
+              >
+                <option value="DocumentsOnly">Documents Only</option>
+                <option value="Limited">Limited Access</option>
+                <option value="Full">Full Access</option>
+              </select>
+            </div>
             <p className="mt-1 text-xs text-gray-500">
               {formData.access_level === 'Full' 
-                ? 'Full Access: Nominee can view all details including assets, documents, and summary data'
+                ? 'Full Access: All investments and documents'
                 : formData.access_level === 'Limited'
-                ? 'Limited Access: Nominee can view basic asset information and selected documents'
-                : 'Documents Only: Nominee can only access documents marked as accessible'}
+                ? 'Limited Access: Basic investment info and documents'
+                : 'Documents Only: Only documents you share'}
             </p>
           </div>
           
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-700 mt-5">
-            <Button
-              variant="secondary"
+            <button
+              type="button"
               onClick={onClose}
+              className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
               disabled={isLoading}
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
-              isLoading={isLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-70"
               disabled={isLoading}
             >
-              {editingNominee ? 'Update' : 'Save'}
-            </Button>
+              {isLoading ? 'Saving...' : (editingNominee ? 'Update' : 'Save')}
+            </button>
           </div>
         </form>
       </div>

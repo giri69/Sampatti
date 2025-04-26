@@ -92,6 +92,7 @@ func (s *NomineeService) Delete(ctx context.Context, id uuid.UUID, userID uuid.U
 }
 
 func (s *NomineeService) SendInvitation(ctx context.Context, nomineeID uuid.UUID, userID uuid.UUID) (string, error) {
+	// Verify nominee belongs to the user
 	nominee, err := s.nomineeRepo.GetByID(ctx, nomineeID)
 	if err != nil {
 		return "", ErrNomineeNotFound
@@ -101,15 +102,14 @@ func (s *NomineeService) SendInvitation(ctx context.Context, nomineeID uuid.UUID
 		return "", ErrUnauthorized
 	}
 
+	// Generate access code using the auth service
+	// This now properly handles updating the nominee record with the access code
 	accessCode, err := s.authService.GenerateNomineeInvite(ctx, nomineeID)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate invitation: %w", err)
 	}
 
-	if err := s.nomineeRepo.UpdateStatus(ctx, nomineeID, "Pending"); err != nil {
-		return "", fmt.Errorf("failed to update nominee status: %w", err)
-	}
-
+	fmt.Printf("Successfully generated access code for nominee %s: %s\n", nomineeID, accessCode)
 	return accessCode, nil
 }
 
@@ -158,22 +158,51 @@ func (s *NomineeService) GetAccessLogs(ctx context.Context, userID uuid.UUID) ([
 }
 
 func (s *NomineeService) VerifyAccessCode(ctx context.Context, nomineeEmail string, userID uuid.UUID, accessCode string) (bool, *model.Nominee, error) {
+	// Get nominee by email and user ID
 	nominee, err := s.nomineeRepo.GetByEmailAndUserID(ctx, nomineeEmail, userID)
 	if err != nil {
+		fmt.Printf("Nominee not found for email %s and user %s: %v\n", nomineeEmail, userID, err)
 		return false, nil, ErrNomineeNotFound
 	}
 
+	// Check if the nominee has an emergency access code set
+	if nominee.EmergencyAccessCode == "" {
+		fmt.Printf("Nominee %s has no emergency access code set\n", nominee.ID)
+		return false, nil, errors.New("no emergency access code has been set for this nominee")
+	}
+
+	// Verify the emergency access code
 	isValid := s.authService.VerifyNomineeCode(accessCode, nominee.EmergencyAccessCode)
 	if !isValid {
+		fmt.Printf("Invalid access code for nominee %s\n", nominee.ID)
 		return false, nil, errors.New("invalid access code")
 	}
 
+	fmt.Printf("Access code verification successful for nominee %s\n", nominee.ID)
+
+	// Create access log
 	log := &model.NomineeAccessLog{
 		NomineeID: nominee.ID,
 		Date:      time.Now(),
-		Action:    "Accessed via code",
+		Action:    "Verified emergency access code",
 	}
-	s.nomineeRepo.LogAccess(ctx, log)
+
+	// Log the access
+	if err := s.nomineeRepo.LogAccess(ctx, log); err != nil {
+		// Just log the error but don't fail the verification
+		fmt.Printf("Warning: Failed to log nominee access: %v\n", err)
+	}
+
+	// If nominee was pending, activate them
+	if nominee.Status == "Pending" {
+		if err := s.nomineeRepo.UpdateStatus(ctx, nominee.ID, "Active"); err != nil {
+			// Just log the error but don't fail the verification
+			fmt.Printf("Warning: Failed to activate nominee: %v\n", err)
+		} else {
+			nominee.Status = "Active" // Update the returned nominee object
+			fmt.Printf("Updated nominee %s status to Active\n", nominee.ID)
+		}
+	}
 
 	return true, nominee, nil
 }

@@ -178,19 +178,41 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, oldP
 
 // NomineeEmergencyAccess handles the emergency access process for nominees
 func (s *AuthService) NomineeEmergencyAccess(ctx context.Context, email, emergencyAccessCode string) (string, error) {
+	// Log for debugging
+	fmt.Printf("Attempting emergency access for email: %s with code: %s\n", email, emergencyAccessCode)
+
+	// Get the nominee by email
 	nominee, err := s.nomineeRepo.GetByEmail(ctx, email)
 	if err != nil {
+		fmt.Printf("Nominee not found for email %s: %v\n", email, err)
 		return "", ErrInvalidCredentials
 	}
 
-	// Verify emergency access code
+	// Log for debugging
+	fmt.Printf("Found nominee: %s, stored code hash: %s\n", nominee.ID, nominee.EmergencyAccessCode)
+
+	// Check if the nominee has an emergency access code set
+	if nominee.EmergencyAccessCode == "" {
+		fmt.Printf("Nominee %s has no emergency access code set\n", nominee.ID)
+		return "", errors.New("no emergency access code has been set for this nominee")
+	}
+
+	// Verify the emergency access code
 	if !s.passwordUtil.CheckPasswordHash(emergencyAccessCode, nominee.EmergencyAccessCode) {
+		fmt.Printf("Invalid access code for nominee %s\n", nominee.ID)
 		return "", ErrInvalidCredentials
 	}
 
-	// Check if nominee is active
-	if nominee.Status != "Active" {
-		return "", errors.New("nominee access is not active")
+	fmt.Printf("Access code verification successful for nominee %s\n", nominee.ID)
+
+	// If access is successful, update nominee status to Active if currently Pending
+	if nominee.Status == "Pending" {
+		if err := s.nomineeRepo.UpdateStatus(ctx, nominee.ID, "Active"); err != nil {
+			// Just log the error but don't fail the authentication
+			fmt.Printf("Warning: Failed to activate nominee: %v\n", err)
+		} else {
+			fmt.Printf("Updated nominee %s status to Active\n", nominee.ID)
+		}
 	}
 
 	// Generate JWT token for nominee
@@ -217,7 +239,8 @@ func (s *AuthService) NomineeEmergencyAccess(ctx context.Context, email, emergen
 	}
 
 	if err := s.nomineeRepo.LogAccess(ctx, accessLog); err != nil {
-		return "", fmt.Errorf("failed to log nominee access: %w", err)
+		// Just log the error but don't fail the authentication
+		fmt.Printf("Warning: Failed to log nominee access: %v\n", err)
 	}
 
 	return tokenString, nil
@@ -225,8 +248,9 @@ func (s *AuthService) NomineeEmergencyAccess(ctx context.Context, email, emergen
 
 // GenerateNomineeInvite creates an emergency access code for a nominee
 func (s *AuthService) GenerateNomineeInvite(ctx context.Context, nomineeID uuid.UUID) (string, error) {
-	// Generate a random access code
+	// Generate a random access code (8 characters is easy to remember but secure enough for this purpose)
 	rawCode := util.GenerateRandomString(8)
+	fmt.Printf("Generated access code for nominee %s: %s\n", nomineeID, rawCode)
 
 	// Hash the code for storage
 	hashedCode, err := s.passwordUtil.HashPassword(rawCode)
@@ -234,15 +258,13 @@ func (s *AuthService) GenerateNomineeInvite(ctx context.Context, nomineeID uuid.
 		return "", fmt.Errorf("failed to hash access code: %w", err)
 	}
 
-	// Update nominee with the hashed code
-	nominee, err := s.nomineeRepo.GetByID(ctx, nomineeID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get nominee: %w", err)
-	}
+	// Log for debugging
+	fmt.Printf("Hashed access code for nominee %s: %s\n", nomineeID, hashedCode)
 
-	nominee.EmergencyAccessCode = hashedCode
-	if err := s.nomineeRepo.Update(ctx, nominee); err != nil {
-		return "", fmt.Errorf("failed to update nominee: %w", err)
+	// Update the nominee directly with just the emergency access code
+	// This avoids issues with partial updates of other nominee fields
+	if err := s.nomineeRepo.UpdateEmergencyAccessCode(ctx, nomineeID, hashedCode); err != nil {
+		return "", fmt.Errorf("failed to save access code: %w", err)
 	}
 
 	return rawCode, nil
@@ -270,10 +292,6 @@ func (s *AuthService) generateRefreshToken(userID uuid.UUID) (string, error) {
 	return token.SignedString([]byte(s.cfg.RefreshSecret))
 }
 
-func (s *AuthService) VerifyNomineeCode(accessCode, storedHash string) bool {
-	return s.passwordUtil.CheckPasswordHash(accessCode, storedHash)
-}
-
 func (s *AuthService) GenerateNomineeToken(nomineeID, userID uuid.UUID, accessLevel string) (string, error) {
 	// Create JWT token for nominee access
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -292,4 +310,9 @@ func (s *AuthService) GenerateNomineeToken(nomineeID, userID uuid.UUID, accessLe
 	}
 
 	return tokenString, nil
+}
+
+// VerifyNomineeCode verifies if an access code matches the stored hash
+func (s *AuthService) VerifyNomineeCode(accessCode, storedHash string) bool {
+	return s.passwordUtil.CheckPasswordHash(accessCode, storedHash)
 }

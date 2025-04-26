@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,51 +90,6 @@ func (r *NomineeRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (
 	return nominees, nil
 }
 
-func (r *NomineeRepository) GetByEmail(ctx context.Context, email string) (*model.Nominee, error) {
-	var nominee model.Nominee
-	query := `
-		SELECT id, user_id, name, email, phone_number, relationship,
-			access_level, created_at, updated_at, status,
-			emergency_access_code, last_access_date
-		FROM nominees
-		WHERE email = $1
-	`
-
-	err := r.db.GetContext(ctx, &nominee, query, email)
-	if err != nil {
-		return nil, err
-	}
-
-	return &nominee, nil
-}
-
-func (r *NomineeRepository) Update(ctx context.Context, nominee *model.Nominee) error {
-	query := `
-		UPDATE nominees SET
-			name = $1,
-			phone_number = $2,
-			relationship = $3,
-			access_level = $4,
-			updated_at = $5
-		WHERE id = $6
-	`
-
-	nominee.UpdatedAt = time.Now()
-
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		nominee.Name,
-		nominee.PhoneNumber,
-		nominee.Relationship,
-		nominee.AccessLevel,
-		nominee.UpdatedAt,
-		nominee.ID,
-	)
-
-	return err
-}
-
 func (r *NomineeRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	query := `
 		UPDATE nominees SET
@@ -156,52 +112,6 @@ func (r *NomineeRepository) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 func (r *NomineeRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM nominees WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
-	return err
-}
-
-func (r *NomineeRepository) LogAccess(ctx context.Context, log *model.NomineeAccessLog) error {
-	query := `
-		INSERT INTO nominee_access_logs (
-			id, nominee_id, date, action, ip_address, device_info
-		) VALUES (
-			$1, $2, $3, $4, $5, $6
-		)
-	`
-
-	log.ID = uuid.New()
-	if log.Date.IsZero() {
-		log.Date = time.Now()
-	}
-
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		log.ID,
-		log.NomineeID,
-		log.Date,
-		log.Action,
-		log.IPAddress,
-		log.DeviceInfo,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	// Update last access date
-	updateQuery := `
-		UPDATE nominees SET
-			last_access_date = $1
-		WHERE id = $2
-	`
-
-	_, err = r.db.ExecContext(
-		ctx,
-		updateQuery,
-		log.Date,
-		log.NomineeID,
-	)
-
 	return err
 }
 
@@ -257,4 +167,148 @@ func (r *NomineeRepository) GetByEmailAndUserID(ctx context.Context, email strin
 	}
 
 	return &nominee, nil
+}
+
+// Update method - FIXED to include emergency_access_code in the query
+func (r *NomineeRepository) Update(ctx context.Context, nominee *model.Nominee) error {
+	// Add debug logging to see what we're trying to save
+	fmt.Printf("Updating nominee %s with access code: %s\n", nominee.ID, nominee.EmergencyAccessCode)
+
+	query := `
+		UPDATE nominees SET
+			name = $1,
+			phone_number = $2,
+			relationship = $3,
+			access_level = $4,
+			updated_at = $5,
+			status = $6,
+			emergency_access_code = $7
+		WHERE id = $8
+	`
+
+	nominee.UpdatedAt = time.Now()
+
+	result, err := r.db.ExecContext(
+		ctx,
+		query,
+		nominee.Name,
+		nominee.PhoneNumber,
+		nominee.Relationship,
+		nominee.AccessLevel,
+		nominee.UpdatedAt,
+		nominee.Status,
+		nominee.EmergencyAccessCode, // This is what was missing!
+		nominee.ID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update nominee: %w", err)
+	}
+
+	// Add additional check to verify update happened
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("no rows affected when updating nominee %s", nominee.ID)
+	}
+
+	fmt.Printf("Successfully updated nominee %s, rows affected: %d\n", nominee.ID, rows)
+	return nil
+}
+
+// UpdateEmergencyAccessCode - NEW method specifically for updating just the emergency code
+func (r *NomineeRepository) UpdateEmergencyAccessCode(ctx context.Context, nomineeID uuid.UUID, code string) error {
+	query := `
+		UPDATE nominees SET
+			emergency_access_code = $1,
+			updated_at = $2,
+			status = 'Pending'
+		WHERE id = $3
+	`
+
+	now := time.Now()
+	result, err := r.db.ExecContext(ctx, query, code, now, nomineeID)
+	if err != nil {
+		return fmt.Errorf("failed to update emergency access code: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error checking rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("no rows affected when updating access code for nominee %s", nomineeID)
+	}
+
+	fmt.Printf("Successfully updated access code for nominee %s\n", nomineeID)
+	return nil
+}
+
+func (r *NomineeRepository) GetByEmail(ctx context.Context, email string) (*model.Nominee, error) {
+	var nominee model.Nominee
+	query := `
+		SELECT id, user_id, name, email, phone_number, relationship,
+			access_level, created_at, updated_at, status,
+			emergency_access_code, last_access_date
+		FROM nominees
+		WHERE email = $1
+		LIMIT 1
+	`
+
+	err := r.db.GetContext(ctx, &nominee, query, email)
+	if err != nil {
+		return nil, err
+	}
+
+	return &nominee, nil
+}
+
+func (r *NomineeRepository) LogAccess(ctx context.Context, log *model.NomineeAccessLog) error {
+	query := `
+		INSERT INTO nominee_access_logs (
+			id, nominee_id, date, action, ip_address, device_info
+		) VALUES (
+			$1, $2, $3, $4, $5, $6
+		)
+	`
+
+	log.ID = uuid.New()
+	if log.Date.IsZero() {
+		log.Date = time.Now()
+	}
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		log.ID,
+		log.NomineeID,
+		log.Date,
+		log.Action,
+		log.IPAddress,
+		log.DeviceInfo,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	// Update last access date
+	updateQuery := `
+		UPDATE nominees SET
+			last_access_date = $1
+		WHERE id = $2
+	`
+
+	_, err = r.db.ExecContext(
+		ctx,
+		updateQuery,
+		log.Date,
+		log.NomineeID,
+	)
+
+	return err
 }

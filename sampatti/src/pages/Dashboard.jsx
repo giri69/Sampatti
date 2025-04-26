@@ -204,12 +204,12 @@ const Dashboard = () => {
       <p className="text-gray-400 mb-6 max-w-md mx-auto">
         You haven't added any investments yet. Start tracking your investments to see detailed insights here.
       </p>
+  <Link to="/investments/add" className="flex items-center gap-2">
       <Button asChild>
-        <Link to="/investments/add" className="flex items-center gap-2">
-          <Plus size={18} />
-          Add Your First Investment
-        </Link>
-      </Button>
+    <Plus size={18} />
+    Add Your First Investment
+</Button>
+  </Link>
     </Card>
   );
 
@@ -252,14 +252,12 @@ const Dashboard = () => {
           <p className="text-gray-400">Here's a summary of your investment portfolio</p>
         </div>
         
-        <Button
-          as={Link}
-          to="/investments/add"
-          icon={<Plus size={18} />}
-          className="mt-4 md:mt-0"
-        >
-          Add Investment
-        </Button>
+        <Link to="/investments/add" className="flex items-center gap-2">
+      <Button asChild>
+    <Plus size={18} />
+    Add Investment
+</Button>
+  </Link>
       </div>
       
       {assetError && <ErrorState message={assetError} onRetry={() => window.location.reload()} />}

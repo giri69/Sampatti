@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -216,23 +217,83 @@ func (h *AuthHandler) EmergencyAccess(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := h.authService.NomineeEmergencyAccess(
-		c.Request.Context(),
-		request.Email,
-		request.EmergencyAccessCode,
-	)
-
+	// Get the nominee by email
+	nomineeRepo := postgres.NewNomineeRepository(h.db)
+	nominee, err := nomineeRepo.GetByEmail(c.Request.Context(), request.Email)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, service.ErrInvalidCredentials) {
-			status = http.StatusUnauthorized
-		}
-		c.JSON(status, gin.H{"error": err.Error()})
+		// Don't reveal if the email exists or not for security
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"access_token": accessToken,
-		"token_type":   "Bearer",
-	})
+	// Get the user the nominee has access to
+	userRepo := postgres.NewUserRepository(h.db)
+	user, err := userRepo.GetByID(c.Request.Context(), nominee.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user data"})
+		return
+	}
+
+	// Verify access code
+	if !h.authService.VerifyNomineeCode(request.EmergencyAccessCode, nominee.EmergencyAccessCode) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	// Check nominee status
+	if nominee.Status != "Active" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "nominee access is not active"})
+		return
+	}
+
+	// Log the access attempt
+	accessLog := &model.NomineeAccessLog{
+		NomineeID:  nominee.ID,
+		Date:       time.Now(),
+		Action:     "Emergency Access",
+		IPAddress:  c.ClientIP(),
+		DeviceInfo: c.Request.UserAgent(),
+	}
+	if err := nomineeRepo.LogAccess(c.Request.Context(), accessLog); err != nil {
+		// Just log the error, don't fail the request
+		log.Printf("Failed to log nominee access: %v", err)
+	}
+
+	// Collect data based on access level
+	// Sanitize user data
+	userData := map[string]interface{}{
+		"id":    user.ID,
+		"name":  user.Name,
+		"email": user.Email,
+	}
+
+	response := gin.H{
+		"user":         userData,
+		"access_level": nominee.AccessLevel,
+	}
+
+	// Get assets and documents based on access level
+	if nominee.AccessLevel == "Full" || nominee.AccessLevel == "Limited" {
+		assetRepo := postgres.NewAssetRepository(h.db)
+		assets, err := assetRepo.GetByUserID(c.Request.Context(), user.ID)
+		if err == nil {
+			response["assets"] = assets
+		}
+	}
+
+	// Always include documents for any access level
+	documentRepo := postgres.NewDocumentRepository(h.db)
+	var documents []model.Document
+
+	if nominee.AccessLevel == "DocumentsOnly" {
+		// For documents-only access, get only documents marked as accessible to nominees
+		documents, _ = documentRepo.GetNomineeDocuments(c.Request.Context(), nominee.ID)
+	} else {
+		// For other access levels, get all documents
+		documents, _ = documentRepo.GetByUserID(c.Request.Context(), user.ID)
+	}
+
+	response["documents"] = documents
+
+	c.JSON(http.StatusOK, response)
 }
