@@ -1,4 +1,3 @@
-// src/pages/Dashboard.jsx - Updated to use Zustand store
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -7,13 +6,11 @@ import {
 } from 'lucide-react';
 import { useAuth, useAssets, useAlerts } from '../store';
 
-// Import common components
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import LoadingState from '../components/common/LoadingState';
 import ErrorState from '../components/common/ErrorState';
 
-// Asset Allocation Chart Component
 const AssetAllocationChart = ({ assetAllocation = [], totalValue = 0 }) => {
   if (assetAllocation.length === 0) {
     return (
@@ -33,7 +30,6 @@ const AssetAllocationChart = ({ assetAllocation = [], totalValue = 0 }) => {
     );
   }
 
-  // Format currency for display
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -45,7 +41,6 @@ const AssetAllocationChart = ({ assetAllocation = [], totalValue = 0 }) => {
   return (
     <div className="flex flex-col md:flex-row">
       <div className="md:w-1/2 mb-6 md:mb-0">
-        {/* SVG Pie Chart */}
         <div className="flex items-center justify-center py-8">
           <div className="relative h-48 w-48">
             <div className="absolute inset-0 flex items-center justify-center">
@@ -99,7 +94,6 @@ const AssetAllocationChart = ({ assetAllocation = [], totalValue = 0 }) => {
   );
 };
 
-// Alert Component
 const AlertItem = ({ alert, assetLink = false }) => {
   const getSeverityColor = (severity) => {
     switch (severity.toLowerCase()) {
@@ -146,7 +140,6 @@ const AlertItem = ({ alert, assetLink = false }) => {
   );
 };
 
-// Dashboard Component
 const Dashboard = () => {
   const { currentUser } = useAuth();
   const { 
@@ -162,9 +155,8 @@ const Dashboard = () => {
     fetchAlerts
   } = useAlerts();
 
-  const [hasInvestments, setHasInvestments] = useState(true);
+  const [dataInitialized, setDataInitialized] = useState(false);
   
-  // Format helpers
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -186,26 +178,23 @@ const Dashboard = () => {
     }
   };
 
-  // Load dashboard data
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        // Load portfolio summary
-        const summary = await fetchPortfolioSummary();
-        setHasInvestments(summary?.asset_count > 0);
-        
-        // Load alerts (top 5 unread)
-        await fetchAlerts(false);
+        await Promise.all([
+          fetchPortfolioSummary(),
+          fetchAlerts(false)
+        ]);
+        setDataInitialized(true);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
-        setHasInvestments(false);
+        setDataInitialized(true);
       }
     };
     
     loadDashboardData();
   }, [fetchPortfolioSummary, fetchAlerts]);
 
-  // EmptyState component for no investments
   const EmptyState = () => (
     <Card className="p-8 text-center">
       <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -224,26 +213,12 @@ const Dashboard = () => {
     </Card>
   );
 
-  const isLoading = assetsLoading || alertsLoading;
+  const isLoading = (assetsLoading || alertsLoading) && !dataInitialized;
 
-  if (isLoading && !portfolioSummary) {
+  if (isLoading) {
     return <LoadingState message="Loading your dashboard..." />;
   }
 
-  if (assetError && !hasInvestments) {
-    return (
-      <div>
-        <ErrorState 
-          message="Error Loading Dashboard" 
-          details={assetError}
-          onRetry={() => window.location.reload()}
-        />
-        <EmptyState />
-      </div>
-    );
-  }
-
-  // Initialize data or use empty values as fallback
   const summary = portfolioSummary || {
     total_value: 0,
     total_investment: 0,
@@ -255,25 +230,22 @@ const Dashboard = () => {
     last_updated: new Date().toISOString()
   };
   
-  // Calculate the total return in rupees
+  const hasInvestments = summary.asset_count > 0;
   const totalReturnValue = summary.total_value - summary.total_investment;
   const isPositiveReturn = totalReturnValue >= 0;
   
-  // Calculate allocation percentages for the chart
   const assetAllocation = Object.entries(summary.assets_by_type || {}).map(([type, value]) => ({
     type,
     value,
     percentage: Math.round((value / Math.max(summary.total_value, 1)) * 100)
   }));
 
-  // If no investments found, display empty state
-  if (!hasInvestments) {
+  if (dataInitialized && !hasInvestments) {
     return <EmptyState />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-1 text-white">Welcome, {currentUser?.name || 'Investor'}</h1>
@@ -290,12 +262,9 @@ const Dashboard = () => {
         </Button>
       </div>
       
-      {/* Error message if any */}
       {assetError && <ErrorState message={assetError} onRetry={() => window.location.reload()} />}
       
-      {/* Portfolio Summary - Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Portfolio Value */}
         <Card>
           <div className="flex items-start justify-between">
             <div>
@@ -314,7 +283,6 @@ const Dashboard = () => {
           </div>
         </Card>
         
-        {/* Total Investment */}
         <Card>
           <div className="flex items-start justify-between">
             <div>
@@ -330,7 +298,6 @@ const Dashboard = () => {
           </div>
         </Card>
         
-        {/* Largest Allocation */}
         <Card>
           <div className="flex items-start justify-between">
             <div>
@@ -349,7 +316,6 @@ const Dashboard = () => {
           </div>
         </Card>
         
-        {/* Average Risk Score */}
         <Card>
           <div className="flex items-start justify-between">
             <div>
@@ -367,9 +333,7 @@ const Dashboard = () => {
         </Card>
       </div>
       
-      {/* Middle Section - Charts & Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Asset Allocation Chart */}
         <Card 
           title="Asset Allocation"
           className="lg:col-span-2"
@@ -380,7 +344,6 @@ const Dashboard = () => {
           />
         </Card>
         
-        {/* Important Alerts */}
         <Card
           title="Important Alerts"
           titleRight={
@@ -391,7 +354,6 @@ const Dashboard = () => {
           noPadding
         >
           <div className="p-2">
-            {/* Upcoming Maturities Alert */}
             {summary.upcoming_maturities && summary.upcoming_maturities.length > 0 && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg m-2">
                 <div className="flex justify-between items-start mb-2">
@@ -409,7 +371,6 @@ const Dashboard = () => {
               </div>
             )}
             
-            {/* Regular Alerts */}
             {alerts && alerts.length > 0 ? (
               alerts.slice(0, 3).map((alert, index) => (
                 <AlertItem key={alert.id || index} alert={alert} assetLink={true} />
@@ -428,7 +389,6 @@ const Dashboard = () => {
         </Card>
       </div>
       
-      {/* Last Updated Info */}
       <div className="text-xs text-gray-500 text-right">
         Last updated: {formatDate(summary.last_updated)}
       </div>
