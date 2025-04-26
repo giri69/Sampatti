@@ -8,20 +8,35 @@ import (
 	"github.com/google/uuid"
 	"github.com/sampatti/internal/model"
 	"github.com/sampatti/internal/service"
-	"github.com/sampatti/internal/types" // Changed from api to types
+	"github.com/sampatti/internal/types"
 )
 
 type NomineeHandler struct {
-	nomineeService *service.NomineeService
+	nomineeService  *service.NomineeService
+	userService     *service.UserService
+	assetService    *service.AssetService
+	documentService *service.DocumentService
+	authService     *service.AuthService
 }
 
-func NewNomineeHandler(nomineeService *service.NomineeService) *NomineeHandler {
-	return &NomineeHandler{nomineeService: nomineeService}
+func NewNomineeHandler(
+	nomineeService *service.NomineeService,
+	userService *service.UserService,
+	assetService *service.AssetService,
+	documentService *service.DocumentService,
+	authService *service.AuthService,
+) *NomineeHandler {
+	return &NomineeHandler{
+		nomineeService:  nomineeService,
+		userService:     userService,
+		assetService:    assetService,
+		documentService: documentService,
+		authService:     authService,
+	}
 }
 
-// Create handles adding a new nominee
 func (h *NomineeHandler) Create(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -40,7 +55,6 @@ func (h *NomineeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Validate access level
 	if request.AccessLevel != "Full" && request.AccessLevel != "Limited" && request.AccessLevel != "DocumentsOnly" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid access level, must be 'Full', 'Limited', or 'DocumentsOnly'"})
 		return
@@ -68,9 +82,8 @@ func (h *NomineeHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, nominee)
 }
 
-// GetByID returns a specific nominee by ID
 func (h *NomineeHandler) GetByID(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -98,9 +111,8 @@ func (h *NomineeHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, nominee)
 }
 
-// GetAll returns all nominees for the authenticated user
 func (h *NomineeHandler) GetAll(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -115,9 +127,8 @@ func (h *NomineeHandler) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, nominees)
 }
 
-// Update handles updating a nominee's information
 func (h *NomineeHandler) Update(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -142,13 +153,11 @@ func (h *NomineeHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Validate access level
 	if request.AccessLevel != "Full" && request.AccessLevel != "Limited" && request.AccessLevel != "DocumentsOnly" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid access level, must be 'Full', 'Limited', or 'DocumentsOnly'"})
 		return
 	}
 
-	// Get existing nominee to preserve email
 	existingNominee, err := h.nomineeService.GetByID(c.Request.Context(), nomineeID, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -165,7 +174,7 @@ func (h *NomineeHandler) Update(c *gin.Context) {
 		ID:           nomineeID,
 		UserID:       userID,
 		Name:         request.Name,
-		Email:        existingNominee.Email, // Preserve email
+		Email:        existingNominee.Email,
 		PhoneNumber:  request.PhoneNumber,
 		Relationship: request.Relationship,
 		AccessLevel:  request.AccessLevel,
@@ -185,9 +194,8 @@ func (h *NomineeHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, nominee)
 }
 
-// Delete handles removing a nominee
 func (h *NomineeHandler) Delete(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -214,9 +222,8 @@ func (h *NomineeHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "nominee deleted successfully"})
 }
 
-// SendInvitation handles generating and sending an invitation to a nominee
 func (h *NomineeHandler) SendInvitation(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -243,13 +250,12 @@ func (h *NomineeHandler) SendInvitation(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "invitation sent successfully",
-		"code":    accessCode, // In a production app, this would only be sent via email
+		"code":    accessCode,
 	})
 }
 
-// GetAccessLogs returns access logs for all nominees
 func (h *NomineeHandler) GetAccessLogs(c *gin.Context) {
-	userID, ok := types.ExtractUserIDFromGin(c) // Updated to use types package
+	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -261,13 +267,11 @@ func (h *NomineeHandler) GetAccessLogs(c *gin.Context) {
 		return
 	}
 
-	// Create a map of nominee IDs to names for reference
 	nomineeMap := make(map[string]string)
 	for _, nominee := range nominees {
 		nomineeMap[nominee.ID.String()] = nominee.Name
 	}
 
-	// Augment logs with nominee names
 	type EnhancedLog struct {
 		model.NomineeAccessLog
 		NomineeName string `json:"nominee_name"`
@@ -287,4 +291,117 @@ func (h *NomineeHandler) GetAccessLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, enhancedLogs)
+}
+
+func (h *NomineeHandler) GetUsersForNominee(c *gin.Context) {
+	userID, ok := types.ExtractUserIDFromGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	user, err := h.userService.GetByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user details"})
+		return
+	}
+
+	users, err := h.nomineeService.GetUsersForNominee(c.Request.Context(), user.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch users"})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}
+
+func (h *NomineeHandler) AccessUserData(c *gin.Context) {
+	nomineeID, ok := types.ExtractUserIDFromGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	nominee, err := h.userService.GetByID(c.Request.Context(), nomineeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user details"})
+		return
+	}
+
+	userIDParam := c.Param("userID")
+	userID, err := uuid.Parse(userIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	var request struct {
+		AccessCode string `json:"access_code" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	isValid, nomineeInfo, err := h.nomineeService.VerifyAccessCode(
+		c.Request.Context(),
+		nominee.Email,
+		userID,
+		request.AccessCode,
+	)
+
+	if err != nil || !isValid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid access code"})
+		return
+	}
+
+	token, err := h.authService.GenerateNomineeToken(nomineeInfo.ID, userID, nomineeInfo.AccessLevel)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate access token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Access granted",
+		"access_token": token,
+		"access_level": nomineeInfo.AccessLevel,
+	})
+}
+
+func (h *NomineeHandler) GetUserData(c *gin.Context) {
+	isNominee, exists := c.Get(string(types.IsNomineeKey))
+	if !exists || !isNominee.(bool) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "requires nominee access"})
+		return
+	}
+
+	userIDParam := c.Param("userID")
+	userID, err := uuid.Parse(userIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	accessLevel, _ := c.Get(string(types.AccessLevelKey))
+
+	if accessLevel.(string) == "Full" {
+		assets, _ := h.assetService.GetByUserID(c.Request.Context(), userID)
+		documents, _ := h.documentService.GetByUserID(c.Request.Context(), userID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"assets":    assets,
+			"documents": documents,
+		})
+	} else if accessLevel.(string) == "Limited" {
+		assets, _ := h.assetService.GetByUserID(c.Request.Context(), userID)
+		c.JSON(http.StatusOK, gin.H{
+			"assets": assets,
+		})
+	} else {
+		documents, _ := h.documentService.GetNomineeDocuments(c.Request.Context(), userID)
+		c.JSON(http.StatusOK, gin.H{
+			"documents": documents,
+		})
+	}
 }

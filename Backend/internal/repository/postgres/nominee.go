@@ -221,3 +221,40 @@ func (r *NomineeRepository) GetAccessLogs(ctx context.Context, nomineeID uuid.UU
 
 	return logs, nil
 }
+
+// Get nominees by nominee email
+func (r *NomineeRepository) GetByNomineeEmail(ctx context.Context, email string) ([]model.Nominee, error) {
+	var nominees []model.Nominee
+	query := `
+		SELECT id, user_id, name, email, phone_number, relationship,
+			access_level, created_at, updated_at, status,
+			emergency_access_code, last_access_date
+		FROM nominees
+		WHERE email = $1
+	`
+
+	err := r.db.SelectContext(ctx, &nominees, query, email)
+	if err != nil {
+		return nil, err
+	}
+
+	return nominees, nil
+}
+
+func (r *NomineeRepository) GetByEmailAndUserID(ctx context.Context, email string, userID uuid.UUID) (*model.Nominee, error) {
+	var nominee model.Nominee
+	query := `
+		SELECT id, user_id, name, email, phone_number, relationship,
+			access_level, created_at, updated_at, status,
+			emergency_access_code, last_access_date
+		FROM nominees
+		WHERE email = $1 AND user_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &nominee, query, email, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &nominee, nil
+}

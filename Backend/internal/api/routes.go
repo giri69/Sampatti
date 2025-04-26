@@ -39,14 +39,20 @@ func (s *Server) setupRoutes() {
 	authService := service.NewAuthService(userRepo, nomineeRepo, &s.cfg.JWT, passwordUtil)
 	userService := service.NewUserService(userRepo)
 	assetService := service.NewAssetService(assetRepo)
-	nomineeService := service.NewNomineeService(nomineeRepo, authService)
+	nomineeService := service.NewNomineeService(nomineeRepo, userRepo, authService)
 	documentService := service.NewDocumentService(documentRepo, storageService)
 	alertService := service.NewAlertService(alertRepo)
 
 	authHandler := handler.NewAuthHandler(authService, s.db)
 	userHandler := handler.NewUserHandler(userService)
 	assetHandler := handler.NewAssetHandler(assetService)
-	nomineeHandler := handler.NewNomineeHandler(nomineeService)
+	nomineeHandler := handler.NewNomineeHandler(
+		nomineeService,
+		userService,
+		assetService,
+		documentService,
+		authService,
+	)
 	documentHandler := handler.NewDocumentHandler(documentService)
 	alertHandler := handler.NewAlertHandler(alertService)
 
@@ -110,6 +116,13 @@ func (s *Server) setupRoutes() {
 		nominees.DELETE("/:id", nomineeHandler.Delete)
 		nominees.POST("/:id/send-invitation", nomineeHandler.SendInvitation)
 		nominees.GET("/access-log", nomineeHandler.GetAccessLogs)
+	}
+
+	nomineeAccess := api.Group("/nominee-access")
+	{
+		nomineeAccess.GET("/users", nomineeHandler.GetUsersForNominee)
+		nomineeAccess.POST("/access/:userID", nomineeHandler.AccessUserData)
+		nomineeAccess.GET("/data/:userID", nomineeHandler.GetUserData)
 	}
 
 	documents := api.Group("/documents")

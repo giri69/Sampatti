@@ -11,6 +11,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import EmergencyAccess from './pages/EmergencyAccess';
+import EmergencyView from './components/EmergencyView';
 
 // Lazy load pages for better performance
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -55,6 +57,10 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
         </Route>
+        
+        {/* Emergency Access Routes (Public) */}
+        <Route path="/emergency-access" element={<EmergencyAccess />} />
+        <Route path="/emergency-view/:userId" element={<EmergencyView />} />
         
         {/* Protected Routes */}
         <Route element={

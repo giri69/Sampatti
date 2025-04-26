@@ -269,3 +269,27 @@ func (s *AuthService) generateRefreshToken(userID uuid.UUID) (string, error) {
 
 	return token.SignedString([]byte(s.cfg.RefreshSecret))
 }
+
+func (s *AuthService) VerifyNomineeCode(accessCode, storedHash string) bool {
+	return s.passwordUtil.CheckPasswordHash(accessCode, storedHash)
+}
+
+func (s *AuthService) GenerateNomineeToken(nomineeID, userID uuid.UUID, accessLevel string) (string, error) {
+	// Create JWT token for nominee access
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub":          nomineeID.String(),
+		"user_id":      userID.String(),
+		"access_type":  "nominee",
+		"access_level": accessLevel,
+		"exp":          time.Now().Add(time.Hour * 24).Unix(), // 24-hour access
+		"iat":          time.Now().Unix(),
+	})
+
+	// Sign the token
+	tokenString, err := token.SignedString([]byte(s.cfg.Secret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	return tokenString, nil
+}

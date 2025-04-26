@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sampatti/internal/model"
@@ -17,36 +18,37 @@ var (
 
 type NomineeService struct {
 	nomineeRepo *postgres.NomineeRepository
+	userRepo    *postgres.UserRepository
 	authService *AuthService
 }
 
-func NewNomineeService(nomineeRepo *postgres.NomineeRepository, authService *AuthService) *NomineeService {
+func NewNomineeService(
+	nomineeRepo *postgres.NomineeRepository,
+	userRepo *postgres.UserRepository,
+	authService *AuthService,
+) *NomineeService {
 	return &NomineeService{
 		nomineeRepo: nomineeRepo,
+		userRepo:    userRepo,
 		authService: authService,
 	}
 }
 
-// Create adds a new nominee
 func (s *NomineeService) Create(ctx context.Context, nominee *model.Nominee) error {
-	// Check if nominee already exists with this email
 	existingNominee, err := s.nomineeRepo.GetByEmail(ctx, nominee.Email)
 	if err == nil && existingNominee != nil && existingNominee.UserID == nominee.UserID {
 		return ErrNomineeExists
 	}
 
-	// Create nominee
 	return s.nomineeRepo.Create(ctx, nominee)
 }
 
-// GetByID retrieves a nominee by ID
 func (s *NomineeService) GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.Nominee, error) {
 	nominee, err := s.nomineeRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, ErrNomineeNotFound
 	}
 
-	// Verify ownership
 	if nominee.UserID != userID {
 		return nil, ErrUnauthorized
 	}
@@ -54,14 +56,11 @@ func (s *NomineeService) GetByID(ctx context.Context, id uuid.UUID, userID uuid.
 	return nominee, nil
 }
 
-// GetByUserID retrieves all nominees for a user
 func (s *NomineeService) GetByUserID(ctx context.Context, userID uuid.UUID) ([]model.Nominee, error) {
 	return s.nomineeRepo.GetByUserID(ctx, userID)
 }
 
-// Update updates a nominee's information
 func (s *NomineeService) Update(ctx context.Context, nominee *model.Nominee, userID uuid.UUID) error {
-	// Verify nominee exists and user owns it
 	existingNominee, err := s.nomineeRepo.GetByID(ctx, nominee.ID)
 	if err != nil {
 		return ErrNomineeNotFound
@@ -71,7 +70,6 @@ func (s *NomineeService) Update(ctx context.Context, nominee *model.Nominee, use
 		return ErrUnauthorized
 	}
 
-	// Preserve user ID and other sensitive fields
 	nominee.UserID = existingNominee.UserID
 	nominee.Status = existingNominee.Status
 	nominee.EmergencyAccessCode = existingNominee.EmergencyAccessCode
@@ -80,9 +78,7 @@ func (s *NomineeService) Update(ctx context.Context, nominee *model.Nominee, use
 	return s.nomineeRepo.Update(ctx, nominee)
 }
 
-// Delete removes a nominee
 func (s *NomineeService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	// Verify nominee exists and user owns it
 	nominee, err := s.nomineeRepo.GetByID(ctx, id)
 	if err != nil {
 		return ErrNomineeNotFound
@@ -95,9 +91,7 @@ func (s *NomineeService) Delete(ctx context.Context, id uuid.UUID, userID uuid.U
 	return s.nomineeRepo.Delete(ctx, id)
 }
 
-// SendInvitation generates and sends an invitation to a nominee
 func (s *NomineeService) SendInvitation(ctx context.Context, nomineeID uuid.UUID, userID uuid.UUID) (string, error) {
-	// Verify nominee exists and user owns it
 	nominee, err := s.nomineeRepo.GetByID(ctx, nomineeID)
 	if err != nil {
 		return "", ErrNomineeNotFound
@@ -107,25 +101,19 @@ func (s *NomineeService) SendInvitation(ctx context.Context, nomineeID uuid.UUID
 		return "", ErrUnauthorized
 	}
 
-	// Generate emergency access code
 	accessCode, err := s.authService.GenerateNomineeInvite(ctx, nomineeID)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate invitation: %w", err)
 	}
 
-	// Update nominee status
 	if err := s.nomineeRepo.UpdateStatus(ctx, nomineeID, "Pending"); err != nil {
 		return "", fmt.Errorf("failed to update nominee status: %w", err)
 	}
 
-	// In a real implementation, this would send an email to the nominee
-	// For now, we'll just return the access code
 	return accessCode, nil
 }
 
-// ActivateNominee activates a nominee after they have accepted the invitation
 func (s *NomineeService) ActivateNominee(ctx context.Context, nomineeID uuid.UUID, userID uuid.UUID) error {
-	// Verify nominee exists and user owns it
 	nominee, err := s.nomineeRepo.GetByID(ctx, nomineeID)
 	if err != nil {
 		return ErrNomineeNotFound
@@ -138,9 +126,7 @@ func (s *NomineeService) ActivateNominee(ctx context.Context, nomineeID uuid.UUI
 	return s.nomineeRepo.UpdateStatus(ctx, nomineeID, "Active")
 }
 
-// RevokeNominee revokes a nominee's access
 func (s *NomineeService) RevokeNominee(ctx context.Context, nomineeID uuid.UUID, userID uuid.UUID) error {
-	// Verify nominee exists and user owns it
 	nominee, err := s.nomineeRepo.GetByID(ctx, nomineeID)
 	if err != nil {
 		return ErrNomineeNotFound
@@ -153,15 +139,12 @@ func (s *NomineeService) RevokeNominee(ctx context.Context, nomineeID uuid.UUID,
 	return s.nomineeRepo.UpdateStatus(ctx, nomineeID, "Revoked")
 }
 
-// GetAccessLogs retrieves access logs for a user's nominees
 func (s *NomineeService) GetAccessLogs(ctx context.Context, userID uuid.UUID) ([]model.NomineeAccessLog, []model.Nominee, error) {
-	// Get all nominees for this user
 	nominees, err := s.nomineeRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Collect all access logs
 	allLogs := make([]model.NomineeAccessLog, 0)
 	for _, nominee := range nominees {
 		logs, err := s.nomineeRepo.GetAccessLogs(ctx, nominee.ID)
@@ -172,4 +155,45 @@ func (s *NomineeService) GetAccessLogs(ctx context.Context, userID uuid.UUID) ([
 	}
 
 	return allLogs, nominees, nil
+}
+
+func (s *NomineeService) VerifyAccessCode(ctx context.Context, nomineeEmail string, userID uuid.UUID, accessCode string) (bool, *model.Nominee, error) {
+	nominee, err := s.nomineeRepo.GetByEmailAndUserID(ctx, nomineeEmail, userID)
+	if err != nil {
+		return false, nil, ErrNomineeNotFound
+	}
+
+	isValid := s.authService.VerifyNomineeCode(accessCode, nominee.EmergencyAccessCode)
+	if !isValid {
+		return false, nil, errors.New("invalid access code")
+	}
+
+	log := &model.NomineeAccessLog{
+		NomineeID: nominee.ID,
+		Date:      time.Now(),
+		Action:    "Accessed via code",
+	}
+	s.nomineeRepo.LogAccess(ctx, log)
+
+	return true, nominee, nil
+}
+
+func (s *NomineeService) GetUsersForNominee(ctx context.Context, nomineeEmail string) ([]model.User, error) {
+	nominees, err := s.nomineeRepo.GetByNomineeEmail(ctx, nomineeEmail)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nominees: %w", err)
+	}
+
+	users := make([]model.User, 0, len(nominees))
+	for _, nominee := range nominees {
+		user, err := s.userRepo.GetByID(ctx, nominee.UserID)
+		if err != nil {
+			continue
+		}
+		// Remove sensitive data
+		user.PasswordHash = ""
+		users = append(users, *user)
+	}
+
+	return users, nil
 }
