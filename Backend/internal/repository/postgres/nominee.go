@@ -32,7 +32,6 @@ func (r *NomineeRepository) Create(ctx context.Context, nominee *model.Nominee) 
 	nominee.ID = uuid.New()
 	nominee.CreatedAt = time.Now()
 	nominee.UpdatedAt = time.Now()
-	nominee.Status = "Pending"
 
 	_, err := r.db.ExecContext(
 		ctx,
@@ -98,13 +97,8 @@ func (r *NomineeRepository) UpdateStatus(ctx context.Context, id uuid.UUID, stat
 		WHERE id = $3
 	`
 
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		status,
-		time.Now(),
-		id,
-	)
+	now := time.Now()
+	_, err := r.db.ExecContext(ctx, query, status, now, id)
 
 	return err
 }
@@ -169,11 +163,8 @@ func (r *NomineeRepository) GetByEmailAndUserID(ctx context.Context, email strin
 	return &nominee, nil
 }
 
-// Update method - FIXED to include emergency_access_code in the query
+// Update method
 func (r *NomineeRepository) Update(ctx context.Context, nominee *model.Nominee) error {
-	// Add debug logging to see what we're trying to save
-	fmt.Printf("Updating nominee %s with access code: %s\n", nominee.ID, nominee.EmergencyAccessCode)
-
 	query := `
 		UPDATE nominees SET
 			name = $1,
@@ -188,7 +179,7 @@ func (r *NomineeRepository) Update(ctx context.Context, nominee *model.Nominee) 
 
 	nominee.UpdatedAt = time.Now()
 
-	result, err := r.db.ExecContext(
+	_, err := r.db.ExecContext(
 		ctx,
 		query,
 		nominee.Name,
@@ -197,29 +188,14 @@ func (r *NomineeRepository) Update(ctx context.Context, nominee *model.Nominee) 
 		nominee.AccessLevel,
 		nominee.UpdatedAt,
 		nominee.Status,
-		nominee.EmergencyAccessCode, // This is what was missing!
+		nominee.EmergencyAccessCode,
 		nominee.ID,
 	)
 
-	if err != nil {
-		return fmt.Errorf("failed to update nominee: %w", err)
-	}
-
-	// Add additional check to verify update happened
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("error checking rows affected: %w", err)
-	}
-
-	if rows == 0 {
-		return fmt.Errorf("no rows affected when updating nominee %s", nominee.ID)
-	}
-
-	fmt.Printf("Successfully updated nominee %s, rows affected: %d\n", nominee.ID, rows)
-	return nil
+	return err
 }
 
-// UpdateEmergencyAccessCode - NEW method specifically for updating just the emergency code
+// UpdateEmergencyAccessCode - Method for updating just the emergency code
 func (r *NomineeRepository) UpdateEmergencyAccessCode(ctx context.Context, nomineeID uuid.UUID, code string) error {
 	query := `
 		UPDATE nominees SET
@@ -244,7 +220,6 @@ func (r *NomineeRepository) UpdateEmergencyAccessCode(ctx context.Context, nomin
 		return fmt.Errorf("no rows affected when updating access code for nominee %s", nomineeID)
 	}
 
-	fmt.Printf("Successfully updated access code for nominee %s\n", nomineeID)
 	return nil
 }
 

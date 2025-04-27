@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Lock, Shield, Mail, Key } from 'lucide-react';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import ErrorState from '../components/common/ErrorState';
+import { Shield, Mail, Key, ArrowRight } from 'lucide-react';
+import { emergencyLogin } from '../utils/api';
 
 const EmergencyAccess = () => {
   const [email, setEmail] = useState('');
   const [accessCode, setAccessCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [userData, setUserData] = useState(null);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,58 +21,26 @@ const EmergencyAccess = () => {
     setIsLoading(true);
     
     try {
-      console.log(`Attempting emergency access with email: ${email} and code: ${accessCode}`);
+      // Call the emergency access API
+      const data = await emergencyLogin(email, accessCode);
       
-      const response = await fetch('/api/v1/auth/emergency-access', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email,
-          emergency_access_code: accessCode
-        })
-      });
-      
-      // For debugging - log the full response
-      console.log('Response status:', response.status);
-      const responseText = await response.text();
-      console.log('Response body:', responseText);
-      
-      // Parse the response if it's JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        throw new Error('Invalid response from server');
+      // Store the access token
+      if (data.access_token) {
+        localStorage.setItem('emergencyAccessToken', data.access_token);
       }
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Invalid access credentials');
+      // Save user data for display
+      setUserData(data);
+      
+      // Redirect to emergency view page with user ID
+      if (data.user_id) {
+        window.location.href = `/emergency-view/${data.user_id}`;
+      } else {
+        throw new Error('User ID not found in response');
       }
-      
-      // Check if we got the necessary data
-      if (!data.access_token) {
-        throw new Error('No access token received');
-      }
-      
-      // Store the emergency access token
-      localStorage.setItem('emergencyAccessToken', data.access_token);
-      
-      // Get the user ID for redirection
-      const userId = data.user_id;
-      if (!userId) {
-        throw new Error('Missing user information in response');
-      }
-      
-      console.log(`Emergency access granted for user: ${userId}`);
-      
-      // Navigate to the emergency data view
-      window.location.href = `/emergency-view/${userId}`;
     } catch (err) {
       console.error('Emergency access error:', err);
-      setError(err.message || 'Failed to verify access. Please check your email and code.');
+      setError(err.message || 'Invalid credentials. Please check your email and access code.');
     } finally {
       setIsLoading(false);
     }
@@ -92,38 +59,74 @@ const EmergencyAccess = () => {
           </p>
         </div>
         
-        {error && <ErrorState message={error} className="mb-6" />}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 mb-6">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input
-            label="Email Address"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-            icon={<Mail size={18} className="text-gray-500" />}
-            required
-            disabled={isLoading}
-          />
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium mb-2 text-white">
+              Email Address
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail size={18} className="text-gray-500" />
+              </div>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
+                placeholder="Enter your email"
+                required
+                disabled={isLoading}
+              />
+            </div>
+          </div>
           
-          <Input
-            label="Emergency Access Code"
-            value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
-            placeholder="Enter your access code"
-            icon={<Key size={18} className="text-gray-500" />}
-            required
-            disabled={isLoading}
-          />
+          <div>
+            <label htmlFor="accessCode" className="block text-sm font-medium mb-2 text-white">
+              Emergency Access Code
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Key size={18} className="text-gray-500" />
+              </div>
+              <input
+                id="accessCode"
+                type="text"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
+                placeholder="Enter your access code"
+                required
+                disabled={isLoading}
+              />
+            </div>
+          </div>
           
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            className="w-full"
-            isLoading={isLoading}
+            disabled={isLoading}
+            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Access Data
-          </Button>
+            {isLoading ? (
+              <span className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Verifying...
+              </span>
+            ) : (
+              <span className="flex items-center">
+                Access Data <ArrowRight size={18} className="ml-2" />
+              </span>
+            )}
+          </button>
         </form>
         
         <div className="mt-8 text-center">

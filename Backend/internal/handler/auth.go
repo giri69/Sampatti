@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
@@ -15,8 +14,9 @@ import (
 )
 
 type AuthHandler struct {
-	authService *service.AuthService
-	db          *sqlx.DB
+	authService    *service.AuthService
+	nomineeService *service.NomineeService
+	db             *sqlx.DB
 }
 
 func NewAuthHandler(authService *service.AuthService, db *sqlx.DB) *AuthHandler {
@@ -24,6 +24,11 @@ func NewAuthHandler(authService *service.AuthService, db *sqlx.DB) *AuthHandler 
 		authService: authService,
 		db:          db,
 	}
+}
+
+// Set the nominee service after creation
+func (h *AuthHandler) SetNomineeService(nomineeService *service.NomineeService) {
+	h.nomineeService = nomineeService
 }
 
 // Register handles new user registration
@@ -217,49 +222,31 @@ func (h *AuthHandler) EmergencyAccess(c *gin.Context) {
 		return
 	}
 
-	// Get the nominee by email
-	nomineeRepo := postgres.NewNomineeRepository(h.db)
-	nominee, err := nomineeRepo.GetByEmail(c.Request.Context(), request.Email)
-	if err != nil {
-		// Don't reveal if the email exists or not for security
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-		return
-	}
+	// Verify the nominee's access
+	nominee, user, err := h.nomineeService.VerifyNomineeAccess(
+		c.Request.Context(),
+		request.Email,
+		request.EmergencyAccessCode,
+	)
 
-	// Get the user the nominee has access to
-	userRepo := postgres.NewUserRepository(h.db)
-	user, err := userRepo.GetByID(c.Request.Context(), nominee.UserID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve user data"})
-		return
-	}
-
-	// Verify access code
-	if !h.authService.VerifyNomineeCode(request.EmergencyAccessCode, nominee.EmergencyAccessCode) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
 	// Check nominee status
-	if nominee.Status != "Active" {
+	if nominee.Status != "Active" && nominee.Status != "Pending" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "nominee access is not active"})
 		return
 	}
 
-	// Log the access attempt
-	accessLog := &model.NomineeAccessLog{
-		NomineeID:  nominee.ID,
-		Date:       time.Now(),
-		Action:     "Emergency Access",
-		IPAddress:  c.ClientIP(),
-		DeviceInfo: c.Request.UserAgent(),
-	}
-	if err := nomineeRepo.LogAccess(c.Request.Context(), accessLog); err != nil {
-		// Just log the error, don't fail the request
-		log.Printf("Failed to log nominee access: %v", err)
+	// Generate access token for API usage
+	token, err := h.authService.GenerateNomineeToken(nominee.ID, user.ID, nominee.AccessLevel)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate access token"})
+		return
 	}
 
-	// Collect data based on access level
 	// Sanitize user data
 	userData := map[string]interface{}{
 		"id":    user.ID,
@@ -267,33 +254,17 @@ func (h *AuthHandler) EmergencyAccess(c *gin.Context) {
 		"email": user.Email,
 	}
 
+	// Collect data based on access level
 	response := gin.H{
+		"access_token": token,
+		"token_type":   "Bearer",
 		"user":         userData,
 		"access_level": nominee.AccessLevel,
+		"user_id":      user.ID,
 	}
 
-	// Get assets and documents based on access level
-	if nominee.AccessLevel == "Full" || nominee.AccessLevel == "Limited" {
-		assetRepo := postgres.NewAssetRepository(h.db)
-		assets, err := assetRepo.GetByUserID(c.Request.Context(), user.ID)
-		if err == nil {
-			response["assets"] = assets
-		}
-	}
-
-	// Always include documents for any access level
-	documentRepo := postgres.NewDocumentRepository(h.db)
-	var documents []model.Document
-
-	if nominee.AccessLevel == "DocumentsOnly" {
-		// For documents-only access, get only documents marked as accessible to nominees
-		documents, _ = documentRepo.GetNomineeDocuments(c.Request.Context(), nominee.ID)
-	} else {
-		// For other access levels, get all documents
-		documents, _ = documentRepo.GetByUserID(c.Request.Context(), user.ID)
-	}
-
-	response["documents"] = documents
+	// For DocumentsOnly access, no need to include assets data
+	// The frontend will fetch documents only based on the access_level
 
 	c.JSON(http.StatusOK, response)
 }

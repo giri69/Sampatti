@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -35,6 +36,7 @@ func NewNomineeHandler(
 	}
 }
 
+// Create handles creating a new nominee
 func (h *NomineeHandler) Create(c *gin.Context) {
 	userID, ok := types.ExtractUserIDFromGin(c)
 	if !ok {
@@ -79,7 +81,24 @@ func (h *NomineeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, nominee)
+	// Generate an emergency access code for the nominee
+	accessCode, err := h.authService.GenerateNomineeInvite(c.Request.Context(), nominee.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate access code"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"nominee": gin.H{
+			"id":           nominee.ID,
+			"name":         nominee.Name,
+			"email":        nominee.Email,
+			"access_level": nominee.AccessLevel,
+			"status":       nominee.Status,
+		},
+		"code":    accessCode,
+		"message": "Store this emergency access code securely and share it with your nominee. This code will not be shown again.",
+	})
 }
 
 func (h *NomineeHandler) GetByID(c *gin.Context) {
@@ -334,37 +353,27 @@ func (h *NomineeHandler) GetUsersForNominee(c *gin.Context) {
 }
 
 func (h *NomineeHandler) AccessUserData(c *gin.Context) {
-	nomineeID, ok := types.ExtractUserIDFromGin(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	var request struct {
+		Email      string `json:"email" binding:"required,email"`
+		AccessCode string `json:"access_code" binding:"required"`
+		UserID     string `json:"user_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
 		return
 	}
 
-	nominee, err := h.userService.GetByID(c.Request.Context(), nomineeID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user details"})
-		return
-	}
-
-	userIDParam := c.Param("userID")
-	userID, err := uuid.Parse(userIDParam)
+	userID, err := uuid.Parse(request.UserID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
 		return
 	}
 
-	var request struct {
-		AccessCode string `json:"access_code" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
+	// Verify the nominee's access
 	isValid, nomineeInfo, err := h.nomineeService.VerifyAccessCode(
 		c.Request.Context(),
-		nominee.Email,
+		request.Email,
 		userID,
 		request.AccessCode,
 	)
@@ -374,17 +383,94 @@ func (h *NomineeHandler) AccessUserData(c *gin.Context) {
 		return
 	}
 
+	// Generate access token for further API usage
 	token, err := h.authService.GenerateNomineeToken(nomineeInfo.ID, userID, nomineeInfo.AccessLevel)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate access token"})
 		return
 	}
 
+	// Log the access
+	accessLog := &model.NomineeAccessLog{
+		NomineeID:  nomineeInfo.ID,
+		Date:       time.Now(),
+		Action:     "Emergency Data Access",
+		IPAddress:  c.ClientIP(),
+		DeviceInfo: c.Request.UserAgent(),
+	}
+
+	if err := h.nomineeService.LogNomineeAccess(c.Request.Context(), accessLog); err != nil {
+		// Just log the error but don't fail the authentication
+		// Log statement would go here in production code
+	}
+
+	// Get user data
+	user, err := h.userService.GetByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	// Collect data based on access level
+	var assets []model.Asset
+	var documents []model.Document
+
+	if nomineeInfo.AccessLevel == "Full" || nomineeInfo.AccessLevel == "Limited" {
+		assets, _ = h.assetService.GetByUserID(c.Request.Context(), userID)
+	}
+
+	if nomineeInfo.AccessLevel == "Full" || nomineeInfo.AccessLevel == "Limited" {
+		documents, _ = h.documentService.GetByUserID(c.Request.Context(), userID)
+	} else {
+		documents, _ = h.documentService.GetNomineeDocuments(c.Request.Context(), nomineeInfo.ID)
+	}
+
+	// Return the data
 	c.JSON(http.StatusOK, gin.H{
-		"message":      "Access granted",
 		"access_token": token,
+		"token_type":   "Bearer",
+		"user": gin.H{
+			"id":    user.ID,
+			"name":  user.Name,
+			"email": user.Email,
+		},
 		"access_level": nomineeInfo.AccessLevel,
+		"assets":       assets,
+		"documents":    documents,
 	})
+}
+
+// LogNomineeAccess is a helper method to log nominee access activities
+func (h *NomineeHandler) LogNomineeAccess(c *gin.Context) {
+	nomineeID, ok := types.ExtractUserIDFromGin(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var request struct {
+		Action string `json:"action" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	accessLog := &model.NomineeAccessLog{
+		NomineeID:  nomineeID,
+		Date:       time.Now(),
+		Action:     request.Action,
+		IPAddress:  c.ClientIP(),
+		DeviceInfo: c.Request.UserAgent(),
+	}
+
+	if err := h.nomineeService.LogNomineeAccess(c.Request.Context(), accessLog); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to log access"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "access logged successfully"})
 }
 
 func (h *NomineeHandler) GetUserData(c *gin.Context) {
@@ -401,25 +487,71 @@ func (h *NomineeHandler) GetUserData(c *gin.Context) {
 		return
 	}
 
+	nomineeID, _ := types.ExtractUserIDFromGin(c)
 	accessLevel, _ := c.Get(string(types.AccessLevelKey))
 
+	// Get the user for basic info
+	user, err := h.userService.GetByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	// Log the access attempt
+	accessLog := &model.NomineeAccessLog{
+		NomineeID:  nomineeID,
+		Date:       time.Now(),
+		Action:     "Viewed User Data",
+		IPAddress:  c.ClientIP(),
+		DeviceInfo: c.Request.UserAgent(),
+	}
+
+	if err := h.nomineeService.LogNomineeAccess(c.Request.Context(), accessLog); err != nil {
+		// Just log the error but don't fail the request
+		// Production code would have a logger here
+	}
+
+	// Collect data based on access level
+	var assets []model.Asset
+	var documents []model.Document
+
 	if accessLevel.(string) == "Full" {
-		assets, _ := h.assetService.GetByUserID(c.Request.Context(), userID)
-		documents, _ := h.documentService.GetByUserID(c.Request.Context(), userID)
+		assets, _ = h.assetService.GetByUserID(c.Request.Context(), userID)
+		documents, _ = h.documentService.GetByUserID(c.Request.Context(), userID)
 
 		c.JSON(http.StatusOK, gin.H{
-			"assets":    assets,
-			"documents": documents,
+			"user": gin.H{
+				"id":    user.ID,
+				"name":  user.Name,
+				"email": user.Email,
+			},
+			"access_level": accessLevel,
+			"assets":       assets,
+			"documents":    documents,
 		})
 	} else if accessLevel.(string) == "Limited" {
-		assets, _ := h.assetService.GetByUserID(c.Request.Context(), userID)
+		assets, _ = h.assetService.GetByUserID(c.Request.Context(), userID)
+
 		c.JSON(http.StatusOK, gin.H{
-			"assets": assets,
+			"user": gin.H{
+				"id":    user.ID,
+				"name":  user.Name,
+				"email": user.Email,
+			},
+			"access_level": accessLevel,
+			"assets":       assets,
 		})
 	} else {
-		documents, _ := h.documentService.GetNomineeDocuments(c.Request.Context(), userID)
+		documents, _ = h.documentService.GetNomineeDocuments(c.Request.Context(), nomineeID)
+
 		c.JSON(http.StatusOK, gin.H{
-			"documents": documents,
+			"user": gin.H{
+				"id":    user.ID,
+				"name":  user.Name,
+				"email": user.Email,
+			},
+			"access_level": accessLevel,
+			"documents":    documents,
 		})
 	}
 }
