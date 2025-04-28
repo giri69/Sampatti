@@ -267,6 +267,7 @@ const NomineeFormModal = ({ isOpen, onClose, onSubmit, editingNominee = null }) 
 };
 
 // Nominee Detail Modal with Connected Assets
+// NomineeDetailModal with simplified access code display
 const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSendInvite, assets = [] }) => {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState('');
@@ -426,21 +427,19 @@ const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSend
                 </div>
               </div>
               
-              {/* Invite button for pending nominees */}
-              {nominee.status === 'Pending' && (
-                <div className="mt-4">
-                  <Button
-                    className="w-full"
-                    variant="primary"
-                    icon={<Send size={18} />}
-                    onClick={handleSendInvite}
-                    isLoading={isSending}
-                    disabled={isSending}
-                  >
-                    Send Invitation
-                  </Button>
-                </div>
-              )}
+              {/* Invite button for all nominees */}
+              <div className="mt-4">
+                <Button
+                  className="w-full"
+                  variant="primary"
+                  icon={<Send size={18} />}
+                  onClick={handleSendInvite}
+                  isLoading={isSending}
+                  disabled={isSending}
+                >
+                  {inviteCode ? 'Resend Invitation' : 'Send Invitation'}
+                </Button>
+              </div>
             </div>
           </div>
           
@@ -467,23 +466,51 @@ const NomineeDetailModal = ({ nominee, isOpen, onClose, onEdit, onDelete, onSend
               {/* Details tab */}
               {activeTab === 'details' && (
                 <div>
-                  {/* Invite Code Display */}
+                  {/* Simplified Invite Code Display */}
                   {inviteCode && (
-                    <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                      <div className="flex items-start">
-                        <Check size={18} className="text-green-400 mr-2 mt-0.5" />
-                        <div>
-                          <h4 className="text-white font-medium">Invitation Sent!</h4>
-                          <p className="text-gray-300 text-sm mb-2">
-                            Share this emergency access code with {nominee.name}:
-                          </p>
-                          <div className="bg-blue-500/20 p-2 rounded font-mono text-center text-blue-400 text-lg">
-                            {inviteCode}
+                    <div className="mb-6 p-5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <h4 className="text-white font-medium mb-3 flex items-center">
+                        <Check size={18} className="text-green-400 mr-2" />
+                        Emergency Access Code Generated!
+                      </h4>
+                      
+                      <div className="mb-4">
+                        <p className="text-gray-300 text-sm mb-2">
+                          Share these details with <span className="text-white font-medium">{nominee.name}</span>:
+                        </p>
+                        
+                        <div className="bg-gray-900 p-4 rounded-lg mb-3">
+                          <div className="mb-3">
+                            <span className="text-gray-400 text-sm block mb-1">Email:</span>
+                            <span className="bg-blue-500/20 p-2 rounded font-mono text-blue-400 text-md block break-all">
+                              {nominee.email}
+                            </span>
                           </div>
-                          <p className="text-gray-400 text-xs mt-2">
-                            Note: Store this code securely. It will not be shown again.
-                          </p>
+                          
+                          <div>
+                            <span className="text-gray-400 text-sm block mb-1">Access Code:</span>
+                            <span className="bg-green-500/20 p-2 rounded font-mono text-green-400 text-lg block">
+                              {inviteCode}
+                            </span>
+                          </div>
                         </div>
+                        
+                        <p className="text-gray-400 text-sm">
+                          <strong>Important:</strong> Store this information securely. The nominee will need both their email and this code to access your shared data in case of emergency.
+                        </p>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <button 
+                          onClick={() => {
+                            const text = `Emergency Access Details for ${nominee.name}:\nEmail: ${nominee.email}\nAccess Code: ${inviteCode}`;
+                            navigator.clipboard.writeText(text);
+                            alert('Access details copied to clipboard');
+                          }}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded"
+                        >
+                          Copy to Clipboard
+                        </button>
                       </div>
                     </div>
                   )}
