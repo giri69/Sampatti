@@ -56,6 +56,8 @@ func (s *Server) setupRoutes() {
 	documentHandler := handler.NewDocumentHandler(documentService)
 	alertHandler := handler.NewAlertHandler(alertService)
 
+	authHandler.SetNomineeService(nomineeService)
+
 	authMiddleware := NewAuthMiddleware(jwtUtil)
 
 	s.router.Use(cors.New(cors.Config{
