@@ -486,30 +486,7 @@ export const getDashboardSummary = async () => {
   return getPortfolioSummary(); 
 };
 
-export const emergencyLogin = async (email, accessCode) => {
-  try {
-    const response = await fetch('/api/v1/auth/emergency-access', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email,
-        emergency_access_code: accessCode
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `Emergency access failed (${response.status})`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Emergency access error:', error);
-    throw error;
-  }
-};
+// Removed duplicate declaration of emergencyLogin
 
 export const getEmergencyData = async (userId) => {
   try {
@@ -533,6 +510,63 @@ export const getEmergencyData = async (userId) => {
     return await response.json();
   } catch (error) {
     console.error('Error fetching emergency data:', error);
+    throw error;
+  }
+};
+
+export const emergencyLogin = async (email, accessCode) => {
+  try {
+    const response = await fetch('/api/v1/auth/emergency-access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        emergency_access_code: accessCode
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Emergency access failed (${response.status})`);
+    }
+    
+    const authData = await response.json();
+    
+    // Store token for subsequent API calls
+    if (authData.access_token) {
+      localStorage.setItem('emergencyAccessToken', authData.access_token);
+    }
+    
+    // Now directly fetch the data using the token we just received
+    const userId = authData.user_id;
+    if (!userId) {
+      throw new Error('User ID not found in response');
+    }
+    
+    const dataResponse = await fetch(`/api/v1/nominee-access/data/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authData.access_token}`
+      }
+    });
+    
+    if (!dataResponse.ok) {
+      const errorData = await dataResponse.json();
+      throw new Error(errorData.error || `Failed to fetch emergency data (${dataResponse.status})`);
+    }
+    
+    const userData = await dataResponse.json();
+    
+    // Combine auth and user data into a single object
+    return {
+      ...authData,
+      ...userData,
+      owner: userData.user, // Add owner info for display
+    };
+  } catch (error) {
+    console.error('Emergency access error:', error);
     throw error;
   }
 };
@@ -587,4 +621,6 @@ export default {
   
   // Dashboard
   getDashboardSummary,
+
+  emergencyLogin,
 };

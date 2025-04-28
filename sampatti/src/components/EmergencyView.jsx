@@ -1,155 +1,182 @@
-import { useState, useEffect } from 'react';
-import { FileText, PieChart, Shield, AlertTriangle, User, ExternalLink, LogOut } from 'lucide-react';
-import { getEmergencyData } from '../utils/api';
-import Card from './common/Card';
-import LoadingState from './common/LoadingState';
-import ErrorState from './common/ErrorState';
+import { useState } from 'react';
+import { Shield, Mail, Key, ArrowRight, LogOut, User, PieChart, FileText } from 'lucide-react';
+import { emergencyLogin } from '../utils/api';
+import { clearEmergencyAccess } from '../utils/emergencyUtils';
+import { 
+  EmergencyAssetItem, 
+  EmergencyDocumentItem, 
+  EmptyAssetsState, 
+  EmptyDocumentsState,
+  EmergencyUserInfo
+} from '../components/emergency/EmergencyComponents';
 
-// Asset Component for rendering investment items
-const AssetItem = ({ asset }) => {
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount || 0);
-  };
+/**
+ * EmergencyAccess component - handles both login and data display after successful access
+ */
+const EmergencyAccess = () => {
+  // Form state
+  const [email, setEmail] = useState('');
+  const [accessCode, setAccessCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   
-  return (
-    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-medium text-white">{asset.asset_name}</h3>
-        <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400">
-          {asset.asset_type}
-        </span>
-      </div>
-      
-      <p className="text-sm text-gray-400 mb-3">{asset.institution || 'No institution'}</p>
-      
-      <div className="flex justify-between items-end">
-        <div>
-          <p className="text-xs text-gray-500">Current Value</p>
-          <p className="text-lg font-semibold text-white">{formatCurrency(asset.current_value)}</p>
-        </div>
-        
-        {asset.account_number && (
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Account</p>
-            <p className="text-sm text-gray-300">{asset.account_number}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Document Component for rendering document items
-const DocumentItem = ({ document }) => {
-  const getDocumentIcon = (mimeType) => {
-    if (!mimeType) return '📄';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('image')) return '🖼️';
-    if (mimeType.includes('text')) return '📝';
-    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return '📊';
-    return '📎';
-  };
-  
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return bytes + ' bytes';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-  
-  return (
-    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-      <div className="flex items-start">
-        <div className="mr-3 text-2xl">{getDocumentIcon(document.mime_type)}</div>
-        <div className="flex-grow">
-          <h3 className="font-medium text-white">{document.title}</h3>
-          <p className="text-sm text-gray-400">{document.document_type} • {formatFileSize(document.file_size)}</p>
-        </div>
-        <div>
-          <button className="text-blue-400 hover:text-blue-300">
-            <ExternalLink size={18} />
-          </button>
-        </div>
-      </div>
-      
-      {document.description && (
-        <p className="text-sm text-gray-300 mt-2 ml-10">{document.description}</p>
-      )}
-    </div>
-  );
-};
-
-const EmergencyView = () => {
+  // Data state
   const [userData, setUserData] = useState(null);
   const [accessLevel, setAccessLevel] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [ownerInfo, setOwnerInfo] = useState(null);
+  const [accessGranted, setAccessGranted] = useState(false);
   
-  // Extract userId from URL path
-  const path = window.location.pathname;
-  const userId = path.split('/').pop();
-  
-  useEffect(() => {
-    const fetchEmergencyData = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        // Check if we have an emergency access token
-        const accessToken = localStorage.getItem('emergencyAccessToken');
-        if (!accessToken) {
-          throw new Error('Access token missing. Please enter your emergency access code again.');
-        }
-        
-        // Get user data
-        const data = await getEmergencyData(userId);
-        setUserData(data);
-        
-        // Set owner info
-        if (data.owner) {
-          setOwnerInfo(data.owner);
-        }
-        
-        // Get access level from response
-        setAccessLevel(data.accessLevel || 'Limited');
-        
-      } catch (err) {
-        console.error('Error fetching emergency data:', err);
-        setError(err.message || 'Failed to load data. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  /**
+   * Handles form submission to request emergency access
+   */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
     
-    fetchEmergencyData();
-  }, [userId]);
-  
-  const handleLogout = () => {
-    localStorage.removeItem('emergencyAccessToken');
-    window.location.href = '/emergency-access';
+    if (!email || !accessCode) {
+      setError('Please enter both email and access code');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Call the emergency access API
+      const data = await emergencyLogin(email, accessCode);
+      
+      // Save user data for display
+      setUserData(data);
+      
+      // Set access level
+      setAccessLevel(data.access_level || 'Limited');
+      
+      // Grant access to view data
+      setAccessGranted(true);
+    } catch (err) {
+      console.error('Emergency access error:', err);
+      setError(err.message || 'Invalid credentials. Please check your email and access code.');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  if (isLoading) {
-    return <LoadingState message="Loading emergency access data..." />;
-  }
+  /**
+   * Logs out and resets the emergency access view
+   */
+  const handleLogout = () => {
+    clearEmergencyAccess();
+    setAccessGranted(false);
+    setUserData(null);
+    setEmail('');
+    setAccessCode('');
+  };
   
-  if (error) {
+  /**
+   * Handles document download (could be expanded with actual download logic)
+   */
+  const handleDocumentDownload = (document) => {
+    // This would typically open the document or initiate a download
+    alert(`Document download requested: ${document.title}`);
+  };
+  
+  // Login form view
+  if (!accessGranted) {
     return (
-      <div className="min-h-screen bg-gray-900 p-6 flex flex-col items-center justify-center">
-        <ErrorState 
-          message={error} 
-          details="You may need to re-enter your emergency access code."
-          onRetry={() => window.location.href = '/emergency-access'}
-        />
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-gray-800 rounded-lg w-full max-w-md p-8 border border-gray-700">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-indigo-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield size={32} className="text-indigo-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Emergency Access</h1>
+            <p className="text-gray-400">
+              Enter your email and emergency access code to view investment details
+            </p>
+          </div>
+          
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 mb-6">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium mb-2 text-white">
+                Email Address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail size={18} className="text-gray-500" />
+                </div>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
+                  placeholder="Enter your email"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="accessCode" className="block text-sm font-medium mb-2 text-white">
+                Emergency Access Code
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Key size={18} className="text-gray-500" />
+                </div>
+                <input
+                  id="accessCode"
+                  type="text"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-3 border border-white/10 bg-white/5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-white placeholder-gray-400"
+                  placeholder="Enter your access code"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Verifying...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  Access Data <ArrowRight size={18} className="ml-2" />
+                </span>
+              )}
+            </button>
+          </form>
+          
+          <div className="mt-8 text-center">
+            <a 
+              href="/" 
+              className="text-sm text-indigo-400 hover:text-indigo-300"
+            >
+              Return to Login
+            </a>
+          </div>
+        </div>
       </div>
     );
   }
   
+  // Emergency data view (when access is granted)
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
@@ -169,42 +196,32 @@ const EmergencyView = () => {
       
       <div className="container mx-auto p-6 space-y-6">
         {/* User info card */}
-        <Card>
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="flex items-start">
             <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mr-4">
               <User size={24} className="text-blue-400" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">{ownerInfo?.name || 'User'}</h1>
-              <p className="text-gray-400">{ownerInfo?.email || ''}</p>
-              
-              <div className="mt-3 flex items-center">
-                <Shield size={16} className="text-yellow-400 mr-2" />
-                <span className="text-sm">
-                  You have <span className="font-medium text-white">{accessLevel} Access</span> as a nominee
-                </span>
-              </div>
-            </div>
+            <EmergencyUserInfo 
+              user={userData?.user || userData?.owner} 
+              accessLevel={accessLevel}
+            />
           </div>
-        </Card>
+        </div>
         
         {/* Assets Section - visible for Full and Limited access */}
-        {(accessLevel === 'Full' || accessLevel === 'Limited') && userData?.assets && (
+        {(accessLevel === 'Full' || accessLevel === 'Limited') && (
           <div className="mt-8">
             <h2 className="text-lg font-medium text-white mb-4 flex items-center">
               <PieChart size={20} className="mr-2 text-blue-400" />
               Investments
             </h2>
             
-            {userData.assets.length === 0 ? (
-              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 text-center">
-                <AlertTriangle size={24} className="mx-auto text-gray-500 mb-2" />
-                <p className="text-gray-400">No investments found</p>
-              </div>
+            {!userData?.assets || userData.assets.length === 0 ? (
+              <EmptyAssetsState message="No investments are available to view" />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {userData.assets.map(asset => (
-                  <AssetItem key={asset.id} asset={asset} />
+                  <EmergencyAssetItem key={asset.id} asset={asset} />
                 ))}
               </div>
             )}
@@ -212,33 +229,31 @@ const EmergencyView = () => {
         )}
         
         {/* Documents Section - visible for all access levels */}
-        {userData?.documents && (
-          <div className="mt-8">
-            <h2 className="text-lg font-medium text-white mb-4 flex items-center">
-              <FileText size={20} className="mr-2 text-purple-400" />
-              Documents
-            </h2>
-            
-            {userData.documents.length === 0 ? (
-              <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 text-center">
-                <AlertTriangle size={24} className="mx-auto text-gray-500 mb-2" />
-                <p className="text-gray-400">No accessible documents found</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {userData.documents.map(document => (
-                  <DocumentItem key={document.id} document={document} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="mt-8">
+          <h2 className="text-lg font-medium text-white mb-4 flex items-center">
+            <FileText size={20} className="mr-2 text-purple-400" />
+            Documents
+          </h2>
+          
+          {!userData?.documents || userData.documents.length === 0 ? (
+            <EmptyDocumentsState message="No accessible documents found" />
+          ) : (
+            <div className="space-y-4">
+              {userData.documents.map(document => (
+                <EmergencyDocumentItem 
+                  key={document.id} 
+                  document={document}
+                  onDownload={handleDocumentDownload}
+                />
+              ))}
+            </div>
+          )}
+        </div>
         
         {/* If DocumentsOnly access level and no documents */}
         {accessLevel === 'DocumentsOnly' && (!userData?.documents || userData.documents.length === 0) && (
-          <div className="mt-8 bg-gray-800 p-6 rounded-lg border border-gray-700 text-center">
-            <AlertTriangle size={24} className="mx-auto text-gray-500 mb-2" />
-            <p className="text-white font-medium mb-1">No Documents Available</p>
+          <div className="mt-8 bg-gray-800 p-6 rounded-lg border border-red-500/30 text-center">
+            <p className="text-white font-medium mb-1">No Available Documents</p>
             <p className="text-gray-400">
               You have documents-only access but there are no documents available for viewing.
             </p>
@@ -253,4 +268,4 @@ const EmergencyView = () => {
   );
 };
 
-export default EmergencyView;
+export default EmergencyAccess;
