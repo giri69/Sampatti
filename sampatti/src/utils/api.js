@@ -514,8 +514,11 @@ export const getEmergencyData = async (userId) => {
   }
 };
 
+// src/utils/api.js - Updated emergencyLogin function
+
 export const emergencyLogin = async (email, accessCode) => {
   try {
+    // Call emergency access endpoint directly
     const response = await fetch('/api/v1/auth/emergency-access', {
       method: 'POST',
       headers: {
@@ -532,39 +535,16 @@ export const emergencyLogin = async (email, accessCode) => {
       throw new Error(errorData.error || `Emergency access failed (${response.status})`);
     }
     
-    const authData = await response.json();
+    // Parse response data (which now contains all the needed information)
+    const data = await response.json();
     
-    // Store token for subsequent API calls
-    if (authData.access_token) {
-      localStorage.setItem('emergencyAccessToken', authData.access_token);
+    // Store token for any potential future API requests
+    if (data.access_token) {
+      localStorage.setItem('emergencyAccessToken', data.access_token);
     }
     
-    // Now directly fetch the data using the token we just received
-    const userId = authData.user_id;
-    if (!userId) {
-      throw new Error('User ID not found in response');
-    }
-    
-    const dataResponse = await fetch(`/api/v1/nominee-access/data/${userId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${authData.access_token}`
-      }
-    });
-    
-    if (!dataResponse.ok) {
-      const errorData = await dataResponse.json();
-      throw new Error(errorData.error || `Failed to fetch emergency data (${dataResponse.status})`);
-    }
-    
-    const userData = await dataResponse.json();
-    
-    // Combine auth and user data into a single object
-    return {
-      ...authData,
-      ...userData,
-      owner: userData.user, // Add owner info for display
-    };
+    // Return complete data object directly
+    return data;
   } catch (error) {
     console.error('Emergency access error:', error);
     throw error;

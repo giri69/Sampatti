@@ -211,6 +211,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 }
 
 // EmergencyAccess handles nominee emergency access
+// Backend/internal/handler/auth.go - Modified EmergencyAccess function
 func (h *AuthHandler) EmergencyAccess(c *gin.Context) {
 	var request struct {
 		Email               string `json:"email" binding:"required,email"`
@@ -247,6 +248,17 @@ func (h *AuthHandler) EmergencyAccess(c *gin.Context) {
 		return
 	}
 
+	// Log the emergency access
+	accessLog := &model.NomineeAccessLog{
+		NomineeID:  nominee.ID,
+		Date:       time.Now(),
+		Action:     "Emergency Data Access",
+		IPAddress:  c.ClientIP(),
+		DeviceInfo: c.Request.UserAgent(),
+	}
+
+	h.nomineeService.LogNomineeAccess(c.Request.Context(), accessLog)
+
 	// Sanitize user data
 	userData := map[string]interface{}{
 		"id":    user.ID,
@@ -255,16 +267,46 @@ func (h *AuthHandler) EmergencyAccess(c *gin.Context) {
 	}
 
 	// Collect data based on access level
+	var assets []model.Asset
+	var documents []model.Document
+
+	assetService := service.NewAssetService(postgres.NewAssetRepository(h.db))
+	documentService := service.NewDocumentService(
+		postgres.NewDocumentRepository(h.db),
+		nil, // No storage service needed for just fetching data
+	)
+
+	// Fetch assets if allowed by access level
+	if nominee.AccessLevel == "Full" || nominee.AccessLevel == "Limited" {
+		assets, _ = assetService.GetByUserID(c.Request.Context(), user.ID)
+
+		// For Limited access, filter out sensitive data
+		if nominee.AccessLevel == "Limited" {
+			for i := range assets {
+				// Redact sensitive fields for Limited access
+				assets[i].AccountNumber = "********" // Mask account number
+				// You could add more field masking here
+			}
+		}
+	}
+
+	// Fetch documents
+	if nominee.AccessLevel == "Full" || nominee.AccessLevel == "Limited" {
+		documents, _ = documentService.GetByUserID(c.Request.Context(), user.ID)
+	} else {
+		documents, _ = documentService.GetNomineeDocuments(c.Request.Context(), nominee.ID)
+	}
+
+	// Prepare response with all data
 	response := gin.H{
 		"access_token": token,
 		"token_type":   "Bearer",
 		"user":         userData,
 		"access_level": nominee.AccessLevel,
 		"user_id":      user.ID,
+		"assets":       assets,
+		"documents":    documents,
 	}
-
-	// For DocumentsOnly access, no need to include assets data
-	// The frontend will fetch documents only based on the access_level
 
 	c.JSON(http.StatusOK, response)
 }
